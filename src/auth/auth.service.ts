@@ -1,7 +1,7 @@
 // src/auth/auth.service.ts
-import { 
-  Injectable, 
-  UnauthorizedException, 
+import {
+  Injectable,
+  UnauthorizedException,
   BadRequestException,
   ConflictException,
   NotFoundException,
@@ -31,57 +31,49 @@ export class AuthService {
     private configService: ConfigService,
     private redisService: RedisService,
     private emailService: EmailService,
-  ) {}
+  ) { }
 
   // ===== REGISTRO =====
   async register(registerDto: RegisterDto, ipAddress: string) {
-  const { email, password, name } = registerDto;
+    const { email, password, name } = registerDto;
 
-  const existingUser = await this.userRepository.findOne({
-    where: { email }
-  });
-  if (existingUser) {
-    throw new ConflictException('Email já cadastrado');
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      throw new BadRequestException(
+        'Senha deve conter: maiúscula, minúscula, número e caractere especial (@$!%*?&)'
+      );
+    }
+
+    // 🔥 Depois verificar se email já existe
+    const existingUser = await this.userRepository.findOne({
+      where: { email }
+    });
+    if (existingUser) {
+      throw new ConflictException('Email já cadastrado');
+    }
+
+    // Criar usuário
+    const isDev = process.env.NODE_ENV === 'development';
+
+    const user = this.userRepository.create({
+      email,
+      password,
+      name,
+      isEmailVerified: isDev,
+    });
+
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Usuário cadastrado com sucesso!',
+      userId: user.id,
+    };
   }
-
-  // Se for desenvolvimento, auto-verificar email
-  const isDevelopment = process.env.NODE_ENV === 'development';
-
-  const user = this.userRepository.create({
-    email,
-    password,
-    name,
-    // Auto-verificar em desenvolvimento
-    isEmailVerified: isDevelopment ? true : false,
-    emailVerificationToken: isDevelopment ? undefined : crypto.randomBytes(32).toString('hex'),
-    emailVerificationTokenExpires: isDevelopment ? undefined : addMinutes(new Date(), 24 * 60),
-  });
-
-  await this.userRepository.save(user);
-
-  // Só enviar email se não for desenvolvimento
-  if (!isDevelopment) {
-    await this.emailService.sendVerificationEmail(
-      user.email,
-      user.name,
-      user.emailVerificationToken!
-    );
-  }
-
-  await this.logAuthEvent(user.id, 'REGISTER', ipAddress);
-
-  return {
-    message: isDevelopment 
-      ? 'Usuário cadastrado com sucesso! (Email auto-verificado em desenvolvimento)'
-      : 'Usuário cadastrado com sucesso. Verifique seu email.',
-    userId: user.id,
-  };
-}
 
   // ===== VERIFICAÇÃO DE EMAIL =====
   async verifyEmail(token: string) {
     const user = await this.userRepository.findOne({
-      where: { 
+      where: {
         emailVerificationToken: token,
         isEmailVerified: false
       }
@@ -92,8 +84,8 @@ export class AuthService {
     }
 
     // Corrigido: verificar se a data existe antes de comparar
-    if (user.emailVerificationTokenExpires && 
-        isAfter(new Date(), user.emailVerificationTokenExpires)) {
+    if (user.emailVerificationTokenExpires &&
+      isAfter(new Date(), user.emailVerificationTokenExpires)) {
       throw new BadRequestException('Token expirado. Solicite um novo.');
     }
 
@@ -108,7 +100,7 @@ export class AuthService {
   // ===== REENVIAR VERIFICAÇÃO =====
   async resendVerification(email: string) {
     const user = await this.userRepository.findOne({ where: { email } });
-    
+
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
@@ -293,8 +285,8 @@ export class AuthService {
 
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-      return { 
-        message: 'Se o email existir, enviaremos um link de recuperação' 
+      return {
+        message: 'Se o email existir, enviaremos um link de recuperação'
       };
     }
 
@@ -311,8 +303,8 @@ export class AuthService {
 
     await this.logAuthEvent(user.id, 'FORGOT_PASSWORD');
 
-    return { 
-      message: 'Se o email existir, enviaremos um link de recuperação' 
+    return {
+      message: 'Se o email existir, enviaremos um link de recuperação'
     };
   }
 
@@ -320,7 +312,7 @@ export class AuthService {
     const { token, newPassword } = resetPasswordDto;
 
     const user = await this.userRepository.findOne({
-      where: { 
+      where: {
         passwordResetToken: token,
       }
     });
@@ -329,8 +321,8 @@ export class AuthService {
       throw new BadRequestException('Token inválido');
     }
 
-    if (user.passwordResetTokenExpires && 
-        isAfter(new Date(), user.passwordResetTokenExpires)) {
+    if (user.passwordResetTokenExpires &&
+      isAfter(new Date(), user.passwordResetTokenExpires)) {
       throw new BadRequestException('Token expirado');
     }
 
@@ -349,8 +341,8 @@ export class AuthService {
 
   // ===== TOKENS =====
   private async generateTokens(user: User) {
-    const payload = { 
-      email: user.email, 
+    const payload = {
+      email: user.email,
       sub: user.id,
       role: user.role
     };
@@ -419,9 +411,9 @@ export class AuthService {
   async revokeAllUserTokens(userId: string) {
     await this.redisService.del(`refresh_token:${userId}`);
     await this.userRepository.update(userId, { refreshToken: undefined });
-    
+
     await this.logAuthEvent(userId, 'REVOKE_ALL_TOKENS');
-    
+
     return { message: 'Todos os tokens foram revogados' };
   }
 
