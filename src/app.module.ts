@@ -9,6 +9,7 @@ import { RedisModule } from './redis/redis.module';
 import { EmailModule } from './email/email.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { User } from './users/entities/user.entity';
+import { TypeOrmConfigService } from './config/typeorm.config';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { User } from './users/entities/user.entity';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
+      useClass: TypeOrmConfigService,
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         host: configService.get('database.host'),
