@@ -7,9 +7,10 @@ import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { EmailModule } from './email/email.module';
+import { LogsModule } from './logs/logs.module'; // ← Importar
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { User } from './users/entities/user.entity';
-import { TypeOrmConfigService } from './config/typeorm.config';
+import { AuditLog } from './logs/entities/audit-log.entity'; // ← Importar a entidade
 
 @Module({
   imports: [
@@ -19,7 +20,6 @@ import { TypeOrmConfigService } from './config/typeorm.config';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useClass: TypeOrmConfigService,
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         host: configService.get('database.host'),
@@ -27,7 +27,7 @@ import { TypeOrmConfigService } from './config/typeorm.config';
         username: configService.get('database.username'),
         password: configService.get('database.password'),
         database: configService.get('database.database'),
-        entities: [User],
+        entities: [User, AuditLog], // ← Adicionar AuditLog aqui TAMBÉM!
         synchronize: false,
         migrations: ['dist/database/migrations/*{.ts,.js}'],
         migrationsTableName: 'migrations',
@@ -38,6 +38,7 @@ import { TypeOrmConfigService } from './config/typeorm.config';
     AuthModule,
     RedisModule,
     EmailModule,
+    LogsModule, // ← Adicionar LogsModule
   ],
   providers: [
     {

@@ -1,4 +1,5 @@
 // src/auth/auth.controller.ts
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { 
   Controller, 
   Post, 
@@ -9,10 +10,7 @@ import {
   Ip,
   Headers,
   Res,
-  HttpCode,
-  HttpStatus
 } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';  // ← Usar FastifyReply em vez de Response
 import { AuthService } from './auth.service';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -32,8 +30,9 @@ export class AuthController {
   async register(
     @Body() registerDto: RegisterDto,
     @Ip() ip: string,
+    @Request() req: FastifyRequest,
   ) {
-    return this.authService.register(registerDto, ip);
+    return this.authService.register(registerDto, ip, req);
   }
 
   @Public()
@@ -48,35 +47,43 @@ export class AuthController {
     return this.authService.resendVerification(email);
   }
 
-  @Public()
+   @Public()
   @UseGuards(RateLimitGuard)
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
     @Ip() ip: string,
     @Headers('user-agent') userAgent: string,
-    @Res({ passthrough: true }) response: FastifyReply,  // ← FastifyReply
+    @Request() req: FastifyRequest,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    const result = await this.authService.login(loginDto, ip, userAgent);
+    const result = await this.authService.login(loginDto, ip, userAgent, req);
     
+    // Verificar se precisa de 2FA
+    if (result.requiresTwoFactor) {
+      return result;
+    }
+
     const isProduction = process.env.NODE_ENV === 'production';
     
-    // Fastify setCookie
-    response.setCookie('access_token', result.accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      maxAge: 15 * 60, // 15 minutos em segundos
-      path: '/',
-    });
+    // Garantir que os tokens existem antes de setar cookies
+    if (result.accessToken && result.refreshToken) {
+      response.setCookie('access_token', result.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 15 * 60,
+        path: '/',
+      });
 
-    response.setCookie('refresh_token', result.refreshToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60, // 7 dias em segundos
-      path: '/auth/refresh',
-    });
+      response.setCookie('refresh_token', result.refreshToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60,
+        path: '/auth/refresh',
+      });
+    }
 
     return result;
   }
@@ -109,9 +116,8 @@ export class AuthController {
     const accessToken = req.cookies?.access_token || req.headers.authorization?.split(' ')[1];
     const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
     
-    await this.authService.logout(req.user.userId, accessToken, refreshToken);
+    await this.authService.logout(req.user.userId, accessToken, refreshToken, req);
     
-    // Limpar cookies
     response.clearCookie('access_token', { path: '/' });
     response.clearCookie('refresh_token', { path: '/auth/refresh' });
 
@@ -120,8 +126,11 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password')
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(forgotPasswordDto);
+  async forgotPassword(
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+    @Request() req: FastifyRequest,
+  ) {
+    return this.authService.forgotPassword(forgotPasswordDto, req);
   }
 
   @Public()

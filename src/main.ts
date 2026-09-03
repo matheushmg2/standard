@@ -22,22 +22,22 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Helmet para segurança
+  // Helmet
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: process.env.NODE_ENV === 'production',
     crossOriginEmbedderPolicy: false,
   });
 
-  // CORS - Corrigido
+  // CORS
   const frontendUrl = configService.get<string>('frontendUrl') || 'http://localhost:4000';
   await app.register(fastifyCors, {
-    origin: [frontendUrl], // ← Usar array para compatibilidade
+    origin: [frontendUrl],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   });
 
-  // Cookies - Corrigido
+  // Cookies
   const secret = configService.get<string>('JWT_ACCESS_SECRET');
   if (!secret) {
     throw new Error('JWT_ACCESS_SECRET não está definido no arquivo .env');
@@ -61,13 +61,14 @@ async function bootstrap() {
     })
   );
 
-  // Prefixo global
-  app.setGlobalPrefix('api');
+  // 🔥 Prefixo global - VERIFICAR SE ESTÁ AQUI
+  app.setGlobalPrefix('api'); // ← Se estiver, todas as rotas têm /api
 
-  const port = configService.get<number>('port') || 4000;
+  const port = configService.get<number>('port') || 3000;
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Servidor rodando em: http://localhost:${port}`);
+  console.log(`📧 Testar email: http://localhost:${port}/api/email/test`);
 }
 
 bootstrap();

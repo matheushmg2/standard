@@ -9,10 +9,8 @@
     "check:env": "ts-node scripts/check-env.ts",
     "prebuild": "yarn check:env",
     "prestart:dev": "yarn check:env",
-
     "clean": "rm -rf dist && rm -f tsconfig.build.tsbuildinfo",
     "build:clean": "yarn clean && yarn build",
-
     "build": "nest build",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -20,22 +18,18 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "typeorm:run": "yarn typeorm migration:run -d ./data-source.ts",
     "typeorm:generate": "yarn typeorm migration:generate -d ./data-source.ts",
     "typeorm:create": "yarn typeorm migration:create",
     "typeorm:revert": "yarn typeorm migration:revert -d ./data-source.ts",
     "typeorm:show": "yarn typeorm migration:show -d ./data-source.ts",
-
     "migration:generate": "yarn typeorm migration:generate -d ./data-source.ts",
     "migration:create": "yarn typeorm migration:create",
     "migration:run": "yarn typeorm migration:run -d ./data-source.ts",
     "migration:revert": "yarn typeorm migration:revert -d ./data-source.ts",
     "migration:show": "yarn typeorm migration:show -d ./data-source.ts",
-
     "db:seed": "yarn typeorm migration:run -d ./data-source.ts",
-
     "lint": "oxlint src/ test/",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -65,6 +59,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
+    "cpf-cnpj-validator": "^2.1.2",
     "date-fns": "^4.4.0",
     "fastify-cookie": "^5.7.0",
     "fastify-helmet": "^7.1.0",
@@ -73,8 +68,10 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.23.0",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "speakeasy": "^2.0.0",
     "typeorm": "^1.1.1",
     "uuid": "^14.0.2"
   },
@@ -89,6 +86,8 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^26.4.0",
     "@types/passport-jwt": "^4.0.1",
+    "@types/qrcode": "^1.5.6",
+    "@types/speakeasy": "^2.0.10",
     "@types/supertest": "^7.0.0",
     "jest": "^30.0.0",
     "oxlint": "^1.58.0",
