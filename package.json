@@ -10,6 +10,9 @@
     "prebuild": "yarn check:env",
     "prestart:dev": "yarn check:env",
 
+    "clean": "rm -rf dist && rm -f tsconfig.build.tsbuildinfo",
+    "build:clean": "yarn clean && yarn build",
+
     "build": "nest build",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -25,11 +28,13 @@
     "typeorm:revert": "yarn typeorm migration:revert -d ./data-source.ts",
     "typeorm:show": "yarn typeorm migration:show -d ./data-source.ts",
 
-    "migration:generate": "yarn typeorm:generate",
-    "migration:create": "yarn typeorm:create",
-    "migration:run": "yarn typeorm:run",
-    "migration:revert": "yarn typeorm:revert",
-    "migration:show": "yarn typeorm:show",
+    "migration:generate": "yarn typeorm migration:generate -d ./data-source.ts",
+    "migration:create": "yarn typeorm migration:create",
+    "migration:run": "yarn typeorm migration:run -d ./data-source.ts",
+    "migration:revert": "yarn typeorm migration:revert -d ./data-source.ts",
+    "migration:show": "yarn typeorm migration:show -d ./data-source.ts",
+
+    "db:seed": "yarn typeorm migration:run -d ./data-source.ts",
 
     "lint": "oxlint src/ test/",
     "test": "jest",

@@ -1,22 +1,46 @@
-// data-source.ts (na raiz do projeto)
 import { DataSource } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
 import { config } from 'dotenv';
+import * as path from 'path';
 
-// Carregar variáveis de ambiente
 config();
 
-const configService = new ConfigService();
+function validateEnvVars() {
+  const required = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+  const missing = required.filter(key => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Variáveis de ambiente faltando: ${missing.join(', ')}\n` +
+      `Verifique seu arquivo .env`
+    );
+  }
+}
+
+validateEnvVars();
 
 export default new DataSource({
   type: 'postgres',
-  host: configService.get('DB_HOST') || 'localhost',
-  port: parseInt(configService.get('DB_PORT') || '5432'),
-  username: configService.get('DB_USER') || 'postgres',
-  password: configService.get('DB_PASSWORD') || 'postgres',
-  database: configService.get('DB_NAME') || 'auth_db',
-  entities: ['src/**/*.entity{.ts,.js}'],
-  migrations: ['src/database/migrations/*{.ts,.js}'],
-  synchronize: false, // Importante: false para usar migrations
-  logging: true,
+  host: process.env.DB_HOST!,
+  port: parseInt(process.env.DB_PORT!, 10),
+  username: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+  database: process.env.DB_NAME!,
+
+  entities: [path.resolve(__dirname, 'src/**/*.entity{.ts,.js}')],
+  migrations: [path.resolve(__dirname, 'src/database/migrations/*{.ts,.js}')],
+
+  synchronize: false,
+  logging: process.env.NODE_ENV === 'development',
+
+  extra: {
+    max: 20,
+    idleTimeoutMillis: 30000,
+  },
+
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false,
+  } : false,
+
+  migrationsRun: false,
+  migrationsTableName: 'migrations',
 });
