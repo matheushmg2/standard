@@ -10,6 +10,9 @@
     "prebuild": "yarn check:env",
     "prestart:dev": "yarn check:env",
 
+    "clean": "rm -rf dist && rm -f tsconfig.build.tsbuildinfo",
+    "build:clean": "yarn clean && yarn build",
+
     "build": "nest build",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
