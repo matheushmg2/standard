@@ -21,6 +21,12 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { FastifyRequest } from 'fastify'; // ← Usar FastifyRequest em vez de Request do express
+
+import { AuditLogService } from '../logs/audit-log.service';
+import { AuditAction } from '../logs/entities/audit-log.entity';
+import { TwoFactorService } from './two-factor.service';
+import { LoginTwoFactorDto } from './dto/two-factor.dto';
 
 @Injectable()
 export class AuthService {
@@ -31,11 +37,14 @@ export class AuthService {
     private configService: ConfigService,
     private redisService: RedisService,
     private emailService: EmailService,
+    private auditLogService: AuditLogService,
+    private twoFactorService: TwoFactorService,
   ) { }
 
   // ===== REGISTRO =====
-  async register(registerDto: RegisterDto, ipAddress: string) {
-    const { email, password, name } = registerDto;
+  async register(registerDto: RegisterDto, ipAddress: string, req?: FastifyRequest) {
+
+    const { email, password, name, ...optionalData } = registerDto;
 
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
@@ -43,6 +52,7 @@ export class AuthService {
         'Senha deve conter: maiúscula, minúscula, número e caractere especial (@$!%*?&)'
       );
     }
+
 
     // 🔥 Depois verificar se email já existe
     const existingUser = await this.userRepository.findOne({
@@ -52,17 +62,56 @@ export class AuthService {
       throw new ConflictException('Email já cadastrado');
     }
 
-    // Criar usuário
-    const isDev = process.env.NODE_ENV === 'development';
+    // Verificar CPF/CNPJ único se fornecido
+    if (optionalData.cpf) {
+      const existingCpf = await this.userRepository.findOne({
+        where: { cpf: optionalData.cpf }
+      });
+      if (existingCpf) {
+        throw new ConflictException('CPF já cadastrado');
+      }
+    }
 
+    if (optionalData.cnpj) {
+      const existingCnpj = await this.userRepository.findOne({
+        where: { cnpj: optionalData.cnpj }
+      });
+      if (existingCnpj) {
+        throw new ConflictException('CNPJ já cadastrado');
+      }
+    }
+
+    // Criar usuário com todos os campos
     const user = this.userRepository.create({
       email,
       password,
       name,
-      isEmailVerified: isDev,
+      ...optionalData, // Inclui todos os campos opcionais
+      isEmailVerified: process.env.NODE_ENV === 'development',
     });
 
+    // Enviar email de verificação
+    if (process.env.NODE_ENV !== 'development') {
+      await this.emailService.sendVerificationEmail(
+        user.email,
+        user.name,
+        user.emailVerificationToken!,
+      );
+    }
+
     await this.userRepository.save(user);
+
+    await this.auditLogService.log(
+      user.id,
+      AuditAction.REGISTER,
+      {
+        email: user.email,
+        ip: ipAddress,
+      },
+      req,
+      `Usuário ${user.email} se registrou`,
+    );
+
 
     return {
       message: 'Usuário cadastrado com sucesso!',
@@ -124,7 +173,7 @@ export class AuthService {
   }
 
   // ===== LOGIN =====
-  async login(loginDto: LoginDto, ipAddress: string, userAgent: string) {
+  async login(loginDto: LoginDto, ipAddress: string, userAgent: string, req?: FastifyRequest) {
     const { email, password } = loginDto;
 
     const user = await this.userRepository.findOne({
@@ -179,6 +228,58 @@ export class AuthService {
     await this.logAuthEvent(user.id, 'LOGIN', ipAddress, userAgent);
 
     const { password: _, refreshToken: __, ...userData } = user;
+
+    // Verificar se login foi bem sucedido
+    if (user && isPasswordValid) {
+      // Log de login bem sucedido
+      await this.auditLogService.log(
+        user.id,
+        AuditAction.LOGIN,
+        {
+          email: user.email,
+          ip: ipAddress,
+          userAgent,
+        },
+        req,
+        `Login realizado de ${userAgent}`,
+      );
+    } else {
+      // Log de login falho
+      await this.auditLogService.log(
+        undefined,
+        AuditAction.LOGIN_FAILED,
+        {
+          email: loginDto.email,
+          ip: ipAddress,
+          userAgent,
+        },
+        req,
+        `Tentativa de login falha para ${loginDto.email}`,
+      );
+    }
+
+    // VERIFICAR SE 2FA ESTÁ ATIVO
+    if (user.twoFactorEnabled) {
+      // Não gerar tokens ainda - precisa do código 2FA
+      await this.auditLogService.log(
+        user.id,
+        AuditAction.LOGIN,
+        {
+          email: user.email,
+          ip: ipAddress,
+          userAgent,
+          requiresTwoFactor: true
+        },
+        req,
+        `Login requer verificação 2FA`,
+      );
+
+      return {
+        requiresTwoFactor: true,
+        userId: user.id,
+        message: 'Autenticação em 2 fatores necessária',
+      };
+    }
 
     return {
       user: userData,
@@ -246,7 +347,13 @@ export class AuthService {
   }
 
   // ===== LOGOUT =====
-  async logout(userId: string, accessToken: string, refreshToken: string) {
+  async logout(
+    userId: string,
+    accessToken: string,
+    refreshToken: string,
+    req?: FastifyRequest, // ← 4º argumento opcional
+  ): Promise<{ message: string }> {
+    // Revogar refresh token
     await this.redisService.set(
       `revoked:${refreshToken}`,
       'true',
@@ -274,13 +381,21 @@ export class AuthService {
       }
     }
 
-    await this.logAuthEvent(userId, 'LOGOUT');
+    // Log de logout - usando o 4º argumento
+    await this.auditLogService.log(
+      userId,
+      AuditAction.LOGOUT,
+      {},
+      req, // ← Passar o req (opcional)
+      'Usuário fez logout',
+    );
 
     return { message: 'Logout realizado com sucesso' };
   }
 
   // ===== RECUPERAÇÃO DE SENHA =====
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto, req?: FastifyRequest) {
+
     const { email } = forgotPasswordDto;
 
     const user = await this.userRepository.findOne({ where: { email } });
@@ -302,6 +417,17 @@ export class AuthService {
     );
 
     await this.logAuthEvent(user.id, 'FORGOT_PASSWORD');
+
+
+    if (user) {
+      await this.auditLogService.log(
+        user.id,
+        AuditAction.PASSWORD_RESET,
+        {},
+        req,
+        `Solicitação de reset de senha para ${user.email}`,
+      );
+    }
 
     return {
       message: 'Se o email existir, enviaremos um link de recuperação'
@@ -421,5 +547,53 @@ export class AuthService {
   async isTokenBlacklisted(token: string): Promise<boolean> {
     const result = await this.redisService.get(`blacklist:${token}`);
     return !!result;
+  }
+
+  // ===== LOGIN COM 2FA =====
+  async loginWithTwoFactor(
+    loginDto: LoginTwoFactorDto,
+    ipAddress: string,
+    userAgent: string,
+    req?: FastifyRequest,
+  ) {
+    const { email, password, twoFactorToken } = loginDto;
+
+    // Validar email e senha
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    // Verificar 2FA
+    const { verified } = await this.twoFactorService.verifyTwoFactorLogin(
+      user.id,
+      twoFactorToken,
+      req,
+    );
+
+    if (!verified) {
+      throw new UnauthorizedException('Token 2FA inválido');
+    }
+
+    // Gerar tokens
+    const tokens = await this.generateTokens(user);
+
+    // Salvar refresh token
+    user.refreshToken = tokens.refreshToken;
+    await this.userRepository.save(user);
+
+    // ... resto do login (logs, etc)
+
+    return {
+      user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: this.configService.get('jwt.accessExpiresIn'),
+    };
   }
 }

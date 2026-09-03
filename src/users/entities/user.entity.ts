@@ -20,6 +20,7 @@ export enum UserRole {
 
 @Entity('users')
 export class User {
+  // ===== CAMPOS EXISTENTES =====
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -37,11 +38,7 @@ export class User {
   @Exclude()
   refreshToken?: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: UserRole, 
-    default: UserRole.USER 
-  })
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
   @Column({ default: false })
@@ -80,6 +77,82 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  // ===== 2FA =====
+  @Column({ nullable: true })
+  @Exclude()
+  twoFactorSecret?: string;
+
+  @Column({ default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
+  @Exclude()
+  twoFactorBackupCodes?: string[];
+
+  // ===== 🆕 NOVOS CAMPOS =====
+  
+  // Documentos
+  @Column({ nullable: true, unique: true })
+  cpf?: string;
+
+  @Column({ nullable: true, unique: true })
+  cnpj?: string;
+
+  @Column({ nullable: true })
+  rg?: string;
+
+  // Dados Pessoais
+  @Column({ nullable: true })
+  birthDate?: Date;
+
+  @Column({ nullable: true })
+  phone?: string;
+
+  @Column({ nullable: true })
+  whatsapp?: string;
+
+  @Column({ nullable: true })
+  avatarUrl?: string;
+
+  @Column({ nullable: true, length: 500 })
+  bio?: string;
+
+  // Endereço
+  @Column({ nullable: true })
+  zipCode?: string;
+
+  @Column({ nullable: true })
+  street?: string;
+
+  @Column({ nullable: true })
+  number?: string;
+
+  @Column({ nullable: true })
+  complement?: string;
+
+  @Column({ nullable: true })
+  neighborhood?: string;
+
+  @Column({ nullable: true })
+  city?: string;
+
+  @Column({ nullable: true })
+  state?: string;
+
+  @Column({ nullable: true })
+  country?: string;
+
+  // Preferências
+  @Column({ type: 'jsonb', nullable: true, default: {} })
+  preferences?: Record<string, any>;
+
+  @Column({ nullable: true, default: 'pt-BR' })
+  language?: string;
+
+  @Column({ nullable: true, default: 'America/Sao_Paulo' })
+  timezone?: string;
+
+  // ===== MÉTODOS EXISTENTES =====
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword() {
