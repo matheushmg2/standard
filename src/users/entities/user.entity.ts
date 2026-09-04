@@ -1,15 +1,17 @@
 // src/users/entities/user.entity.ts
-import { 
-  Entity, 
-  Column, 
-  PrimaryGeneratedColumn, 
-  CreateDateColumn, 
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
   UpdateDateColumn,
   BeforeInsert,
-  BeforeUpdate
+  BeforeUpdate,
+  OneToMany
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
+import { PasswordHistory } from './password-history.entity';
 
 export enum UserRole {
   USER = 'user',
@@ -90,7 +92,7 @@ export class User {
   twoFactorBackupCodes?: string[];
 
   // ===== 🆕 NOVOS CAMPOS =====
-  
+
   // Documentos
   @Column({ nullable: true, unique: true })
   cpf?: string;
@@ -152,6 +154,9 @@ export class User {
   @Column({ nullable: true, default: 'America/Sao_Paulo' })
   timezone?: string;
 
+  @OneToMany(() => PasswordHistory, (history) => history.user)
+  passwordHistory: PasswordHistory[];
+
   // ===== MÉTODOS EXISTENTES =====
   @BeforeInsert()
   @BeforeUpdate()
@@ -163,8 +168,13 @@ export class User {
   }
 
   async comparePassword(plainPassword: string): Promise<boolean> {
-    return bcrypt.compare(plainPassword, this.password);
-  }
+  // Adicionar log para debug
+  console.log('Comparando senha:', {
+    plain: plainPassword,
+    hash: this.password.substring(0, 20) + '...'
+  });
+  return bcrypt.compare(plainPassword, this.password);
+}
 
   isLocked(): boolean {
     if (!this.lockUntil) return false;

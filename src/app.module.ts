@@ -11,6 +11,9 @@ import { LogsModule } from './logs/logs.module'; // ← Importar
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { User } from './users/entities/user.entity';
 import { AuditLog } from './logs/entities/audit-log.entity'; // ← Importar a entidade
+import { SessionsModule } from './sessions/sessions.module';
+import { PasswordHistory } from './users/entities/password-history.entity';
+import { Session } from './sessions/entities/session.entity';
 
 @Module({
   imports: [
@@ -27,7 +30,7 @@ import { AuditLog } from './logs/entities/audit-log.entity'; // ← Importar a e
         username: configService.get('database.username'),
         password: configService.get('database.password'),
         database: configService.get('database.database'),
-        entities: [User, AuditLog], // ← Adicionar AuditLog aqui TAMBÉM!
+        entities: [User, AuditLog, Session, PasswordHistory], // ← Adicionar AuditLog aqui TAMBÉM!
         synchronize: false,
         migrations: ['dist/database/migrations/*{.ts,.js}'],
         migrationsTableName: 'migrations',
@@ -38,7 +41,8 @@ import { AuditLog } from './logs/entities/audit-log.entity'; // ← Importar a e
     AuthModule,
     RedisModule,
     EmailModule,
-    LogsModule, // ← Adicionar LogsModule
+    LogsModule,
+    SessionsModule, // ← Adicionar LogsModule
   ],
   providers: [
     {
