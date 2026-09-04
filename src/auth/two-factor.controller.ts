@@ -22,6 +22,7 @@ import {
 import { Public } from './decorators/public.decorator';
 
 @Controller('2fa')
+@UseGuards(JwtAuthGuard)
 export class TwoFactorController {
   constructor(
     private twoFactorService: TwoFactorService,

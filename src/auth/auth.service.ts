@@ -12,6 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { addMinutes, addDays, isAfter } from 'date-fns';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 import { User, UserRole } from '../users/entities/user.entity';
 import { RedisService } from '../redis/redis.service';
@@ -27,6 +28,8 @@ import { AuditLogService } from '../logs/audit-log.service';
 import { AuditAction } from '../logs/entities/audit-log.entity';
 import { TwoFactorService } from './two-factor.service';
 import { LoginTwoFactorDto } from './dto/two-factor.dto';
+import { SessionsService } from '../sessions/sessions.service';
+import { PasswordHistoryService } from '../users/password-history.service';
 
 @Injectable()
 export class AuthService {
@@ -39,10 +42,11 @@ export class AuthService {
     private emailService: EmailService,
     private auditLogService: AuditLogService,
     private twoFactorService: TwoFactorService,
+    private sessionsService: SessionsService,
+    private passwordHistoryService: PasswordHistoryService,
   ) { }
 
   // ===== REGISTRO =====
-  // src/auth/auth.service.ts
   async register(registerDto: RegisterDto, ipAddress: string, req?: FastifyRequest) {
     const { email, password, name, ...optionalData } = registerDto;
 
@@ -84,7 +88,7 @@ export class AuthService {
     // ===== 4. GERAR TOKEN DE VERIFICAÇÃO =====
     const isDev = process.env.NODE_ENV === 'development';
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = addMinutes(new Date(), 24 * 60); // 24 horas
+    const verificationExpires = addMinutes(new Date(), 24 * 60);
 
     // ===== 5. CRIAR USUÁRIO =====
     const user = this.userRepository.create({
@@ -92,12 +96,15 @@ export class AuthService {
       password,
       name,
       ...optionalData,
-      isEmailVerified: isDev, // Auto-verificar em desenvolvimento
+      isEmailVerified: isDev,
       emailVerificationToken: isDev ? undefined : verificationToken,
       emailVerificationTokenExpires: isDev ? undefined : verificationExpires,
     });
 
     await this.userRepository.save(user);
+
+    // 🔥 ADICIONAR SENHA AO HISTÓRICO
+    await this.passwordHistoryService.addToHistory(user, user.password);
 
     // ===== 6. ENVIAR EMAIL DE VERIFICAÇÃO =====
     if (!isDev) {
@@ -110,7 +117,6 @@ export class AuthService {
         console.log(`✅ Email de verificação enviado para ${user.email}`);
       } catch (error: any) {
         console.error(`❌ Erro ao enviar email para ${user.email}:`, error.message);
-        // Não bloquear o registro se o email falhar
       }
     }
 
@@ -230,69 +236,8 @@ export class AuthService {
     user.lastLoginIP = ipAddress;
     await this.userRepository.save(user);
 
-    const tokens = await this.generateTokens(user);
-
-    user.refreshToken = tokens.refreshToken;
-    await this.userRepository.save(user);
-
-    await this.redisService.set(
-      `refresh_token:${user.id}`,
-      tokens.refreshToken,
-      7 * 24 * 60 * 60
-    );
-
-    await this.logAuthEvent(user.id, 'LOGIN', ipAddress, userAgent);
-
-    const { password: _, refreshToken: __, ...userData } = user;
-
-    // Verificar se login foi bem sucedido
-    if (user && isPasswordValid) {
-
-      const isNewDevice = await this.isNewDevice(user.id, ipAddress, userAgent);
-
-      if (isNewDevice && process.env.NODE_ENV !== 'development') {
-        try {
-          await this.emailService.sendNewLoginEmail(
-            user.email,
-            user.name,
-            ipAddress,
-            userAgent,
-          );
-          console.log(`📧 Email de novo login enviado para ${user.email}`);
-        } catch (error: any) {
-          console.error(`❌ Erro ao enviar email de novo login:`, error.message);
-        }
-      }
-      // Log de login bem sucedido
-      await this.auditLogService.log(
-        user.id,
-        AuditAction.LOGIN,
-        {
-          email: user.email,
-          ip: ipAddress,
-          userAgent,
-        },
-        req,
-        `Login realizado de ${userAgent}`,
-      );
-    } else {
-      // Log de login falho
-      await this.auditLogService.log(
-        undefined,
-        AuditAction.LOGIN_FAILED,
-        {
-          email: loginDto.email,
-          ip: ipAddress,
-          userAgent,
-        },
-        req,
-        `Tentativa de login falha para ${loginDto.email}`,
-      );
-    }
-
     // VERIFICAR SE 2FA ESTÁ ATIVO
     if (user.twoFactorEnabled) {
-      // Não gerar tokens ainda - precisa do código 2FA
       await this.auditLogService.log(
         user.id,
         AuditAction.LOGIN,
@@ -313,30 +258,83 @@ export class AuthService {
       };
     }
 
+    // Gerar tokens
+    const tokens = await this.generateTokens(user);
+
+    // 🔥 CRIAR SESSÃO
+    const session = await this.sessionsService.createSession(
+      user,
+      tokens.refreshToken,
+      req,
+    );
+
+    // Salvar refresh token (mantido para compatibilidade)
+    user.refreshToken = tokens.refreshToken;
+    await this.userRepository.save(user);
+
+    await this.redisService.set(
+      `refresh_token:${user.id}`,
+      tokens.refreshToken,
+      7 * 24 * 60 * 60
+    );
+
+    // Verificar se é novo dispositivo
+    const isNewDevice = await this.isNewDevice(user.id, ipAddress, userAgent);
+
+    if (isNewDevice && process.env.NODE_ENV !== 'development') {
+      try {
+        await this.emailService.sendNewLoginEmail(
+          user.email,
+          user.name,
+          ipAddress,
+          userAgent,
+        );
+        console.log(`📧 Email de novo login enviado para ${user.email}`);
+      } catch (error: any) {
+        console.error(`❌ Erro ao enviar email de novo login:`, error.message);
+      }
+    }
+
+    // Log de login bem sucedido
+    await this.auditLogService.log(
+      user.id,
+      AuditAction.LOGIN,
+      {
+        email: user.email,
+        ip: ipAddress,
+        userAgent,
+        sessionId: session.id,
+      },
+      req,
+      `Login realizado de ${userAgent}`,
+    );
+
+    const { password: _, refreshToken: __, ...userData } = user;
+
     return {
       user: userData,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      sessionId: session.id,
       expiresIn: this.configService.get('jwt.accessExpiresIn'),
     };
   }
 
+  // ===== MÉTODO AUXILIAR: NOVO DISPOSITIVO =====
   private async isNewDevice(userId: string, ip: string, userAgent: string): Promise<boolean> {
-    const lastLogin = await this.auditLogService.getUserLogs(userId, {
-      action: AuditAction.LOGIN,
-      limit: 1,
-    });
+    // Buscar a última sessão do usuário
+    const lastSession = await this.sessionsService.getUserSessions(userId);
 
-    if (lastLogin.logs.length === 0) {
-      return true; // Primeiro login
+    if (lastSession.length === 0) {
+      return true;
     }
 
-    const last = lastLogin.logs[0];
-    const lastIp = last.ipAddress;
-    const lastAgent = last.userAgent;
+    // Verificar se existe uma sessão com o mesmo IP (ignorando User-Agent)
+    const existingSession = lastSession.find(s => s.ipAddress === ip);
 
-    return lastIp !== ip || lastAgent !== userAgent;
+    return !existingSession;
   }
+
 
   // ===== REFRESH TOKEN =====
   async refreshTokens(refreshTokenDto: RefreshTokenDto) {
@@ -400,8 +398,14 @@ export class AuthService {
     userId: string,
     accessToken: string,
     refreshToken: string,
-    req?: FastifyRequest, // ← 4º argumento opcional
+    req?: FastifyRequest,
   ): Promise<{ message: string }> {
+    // 🔥 ENCERRAR SESSÃO
+    const session = await this.sessionsService.validateSession(refreshToken);
+    if (session) {
+      await this.sessionsService.revokeSession(session.id, userId);
+    }
+
     // Revogar refresh token
     await this.redisService.set(
       `revoked:${refreshToken}`,
@@ -410,7 +414,6 @@ export class AuthService {
     );
 
     await this.userRepository.update(userId, { refreshToken: undefined });
-
     await this.redisService.del(`refresh_token:${userId}`);
 
     if (accessToken) {
@@ -430,12 +433,12 @@ export class AuthService {
       }
     }
 
-    // Log de logout - usando o 4º argumento
+    // Log de logout
     await this.auditLogService.log(
       userId,
       AuditAction.LOGOUT,
-      {},
-      req, // ← Passar o req (opcional)
+      { sessionId: session?.id },
+      req,
       'Usuário fez logout',
     );
 
@@ -495,7 +498,8 @@ export class AuthService {
     };
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+  // ===== RESET PASSWORD =====
+  async resetPassword(resetPasswordDto: ResetPasswordDto, req?: FastifyRequest) {
     const { token, newPassword } = resetPasswordDto;
 
     const user = await this.userRepository.findOne({
@@ -513,15 +517,93 @@ export class AuthService {
       throw new BadRequestException('Token expirado');
     }
 
-    user.password = newPassword;
+    // 🔥 VERIFICAR SE SENHA JÁ FOI USADA
+    const isReused = await this.passwordHistoryService.isPasswordReused(
+      user.id,
+      newPassword,
+    );
+
+    if (isReused) {
+      throw new BadRequestException(
+        'Esta senha já foi utilizada anteriormente. Escolha uma nova senha.',
+      );
+    }
+
+    // Atualizar senha
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
     user.passwordResetToken = undefined;
     user.passwordResetTokenExpires = undefined;
     await this.userRepository.save(user);
 
+    // 🔥 ADICIONAR AO HISTÓRICO
+    await this.passwordHistoryService.addToHistory(user, hashedPassword);
+
+    // Revogar tokens e sessões
     await this.redisService.del(`refresh_token:${user.id}`);
     await this.userRepository.update(user.id, { refreshToken: undefined });
+    await this.sessionsService.revokeAllSessions(user.id);
 
     await this.logAuthEvent(user.id, 'RESET_PASSWORD');
+
+    return { message: 'Senha alterada com sucesso' };
+  }
+
+  // ===== CHANGE PASSWORD (NOVO MÉTODO) =====
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+    req?: FastifyRequest,
+  ) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    // Verificar senha atual
+    const isValid = await user.comparePassword(oldPassword);
+    if (!isValid) {
+      throw new UnauthorizedException('Senha atual incorreta');
+    }
+
+    // Verificar se nova senha é igual à atual
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrent) {
+      throw new BadRequestException('A nova senha não pode ser igual à atual');
+    }
+
+    // 🔥 VERIFICAR SE SENHA JÁ FOI USADA
+    const isReused = await this.passwordHistoryService.isPasswordReused(
+      user.id,
+      newPassword,
+    );
+
+    if (isReused) {
+      throw new BadRequestException(
+        'Esta senha já foi utilizada anteriormente. Escolha uma nova senha.',
+      );
+    }
+
+    // Atualizar senha
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    // 🔥 ADICIONAR AO HISTÓRICO
+    await this.passwordHistoryService.addToHistory(user, hashedPassword);
+
+    // Log
+    await this.auditLogService.log(
+      userId,
+      AuditAction.PASSWORD_CHANGE,
+      {},
+      req,
+      'Senha do usuário foi alterada',
+    );
+
+    // 🔥 REVOGAR TODAS AS SESSÕES (segurança)
+    await this.sessionsService.revokeAllSessions(userId);
 
     return { message: 'Senha alterada com sucesso' };
   }
@@ -598,13 +680,14 @@ export class AuthService {
   async revokeAllUserTokens(userId: string) {
     await this.redisService.del(`refresh_token:${userId}`);
     await this.userRepository.update(userId, { refreshToken: undefined });
+    await this.sessionsService.revokeAllSessions(userId);
 
     await this.logAuthEvent(userId, 'REVOKE_ALL_TOKENS');
 
     return { message: 'Todos os tokens foram revogados' };
   }
 
-  // ===== MÉTODO PARA VERIFICAR BLACKLIST (usado no JwtStrategy) =====
+  // ===== MÉTODO PARA VERIFICAR BLACKLIST =====
   async isTokenBlacklisted(token: string): Promise<boolean> {
     const result = await this.redisService.get(`blacklist:${token}`);
     return !!result;
@@ -619,7 +702,6 @@ export class AuthService {
   ) {
     const { email, password, twoFactorToken } = loginDto;
 
-    // Validar email e senha
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
       throw new UnauthorizedException('Credenciais inválidas');
@@ -630,7 +712,6 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // Verificar 2FA
     const { verified } = await this.twoFactorService.verifyTwoFactorLogin(
       user.id,
       twoFactorToken,
@@ -641,19 +722,39 @@ export class AuthService {
       throw new UnauthorizedException('Token 2FA inválido');
     }
 
-    // Gerar tokens
     const tokens = await this.generateTokens(user);
 
-    // Salvar refresh token
+    // 🔥 CRIAR SESSÃO
+    const session = await this.sessionsService.createSession(
+      user,
+      tokens.refreshToken,
+      req,
+    );
+
     user.refreshToken = tokens.refreshToken;
     await this.userRepository.save(user);
 
-    // ... resto do login (logs, etc)
+    await this.auditLogService.log(
+      user.id,
+      AuditAction.LOGIN,
+      {
+        email: user.email,
+        ip: ipAddress,
+        userAgent,
+        twoFactor: true,
+        sessionId: session.id,
+      },
+      req,
+      `Login com 2FA realizado de ${userAgent}`,
+    );
+
+    const { password: _, refreshToken: __, ...userData } = user;
 
     return {
-      user,
+      user: userData,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      sessionId: session.id,
       expiresIn: this.configService.get('jwt.accessExpiresIn'),
     };
   }

@@ -4,7 +4,7 @@
 /build
 
 # Logs
-logs
+/logs/        # ← IGNORA APENAS a pasta logs/ na RAIZ
 *.log
 npm-debug.log*
 pnpm-debug.log*
@@ -59,3 +59,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 *.tsbuildinfo
 tsconfig.build.tsbuildinfo
+
+*cookies*

@@ -13,10 +13,13 @@ import { EmailModule } from '../email/email.module';
 import { LogsModule } from '../logs/logs.module'; // ← Importar
 import { TwoFactorController } from './two-factor.controller';
 import { TwoFactorService } from './two-factor.service';
+import { PasswordHistory } from '../users/entities/password-history.entity';
+import { SessionsModule } from '../sessions/sessions.module';
+import { PasswordHistoryService } from '../users/password-history.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, PasswordHistory]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -30,10 +33,11 @@ import { TwoFactorService } from './two-factor.service';
     }),
     RedisModule,
     EmailModule,
-    LogsModule, // ← Adicionar LogsModule
+    LogsModule,
+    SessionsModule
   ],
   controllers: [AuthController, TwoFactorController],
-  providers: [AuthService, JwtStrategy, TwoFactorService],
+  providers: [AuthService, JwtStrategy, TwoFactorService, PasswordHistoryService],
   exports: [AuthService],
 })
 export class AuthModule {}
