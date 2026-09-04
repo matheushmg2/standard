@@ -42,10 +42,11 @@ export class AuthService {
   ) { }
 
   // ===== REGISTRO =====
+  // src/auth/auth.service.ts
   async register(registerDto: RegisterDto, ipAddress: string, req?: FastifyRequest) {
-
     const { email, password, name, ...optionalData } = registerDto;
 
+    // ===== 1. VALIDAR SENHA =====
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
       throw new BadRequestException(
@@ -53,8 +54,7 @@ export class AuthService {
       );
     }
 
-
-    // 🔥 Depois verificar se email já existe
+    // ===== 2. VERIFICAR SE EMAIL JÁ EXISTE =====
     const existingUser = await this.userRepository.findOne({
       where: { email }
     });
@@ -62,7 +62,7 @@ export class AuthService {
       throw new ConflictException('Email já cadastrado');
     }
 
-    // Verificar CPF/CNPJ único se fornecido
+    // ===== 3. VERIFICAR CPF/CNPJ SE FORNECIDO =====
     if (optionalData.cpf) {
       const existingCpf = await this.userRepository.findOne({
         where: { cpf: optionalData.cpf }
@@ -81,26 +81,40 @@ export class AuthService {
       }
     }
 
-    // Criar usuário com todos os campos
+    // ===== 4. GERAR TOKEN DE VERIFICAÇÃO =====
+    const isDev = process.env.NODE_ENV === 'development';
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = addMinutes(new Date(), 24 * 60); // 24 horas
+
+    // ===== 5. CRIAR USUÁRIO =====
     const user = this.userRepository.create({
       email,
       password,
       name,
-      ...optionalData, // Inclui todos os campos opcionais
-      isEmailVerified: process.env.NODE_ENV === 'development',
+      ...optionalData,
+      isEmailVerified: isDev, // Auto-verificar em desenvolvimento
+      emailVerificationToken: isDev ? undefined : verificationToken,
+      emailVerificationTokenExpires: isDev ? undefined : verificationExpires,
     });
-
-    // Enviar email de verificação
-    if (process.env.NODE_ENV !== 'development') {
-      await this.emailService.sendVerificationEmail(
-        user.email,
-        user.name,
-        user.emailVerificationToken!,
-      );
-    }
 
     await this.userRepository.save(user);
 
+    // ===== 6. ENVIAR EMAIL DE VERIFICAÇÃO =====
+    if (!isDev) {
+      try {
+        await this.emailService.sendVerificationEmail(
+          user.email,
+          user.name,
+          verificationToken,
+        );
+        console.log(`✅ Email de verificação enviado para ${user.email}`);
+      } catch (error: any) {
+        console.error(`❌ Erro ao enviar email para ${user.email}:`, error.message);
+        // Não bloquear o registro se o email falhar
+      }
+    }
+
+    // ===== 7. LOG DE AUDITORIA =====
     await this.auditLogService.log(
       user.id,
       AuditAction.REGISTER,
@@ -112,9 +126,11 @@ export class AuthService {
       `Usuário ${user.email} se registrou`,
     );
 
-
+    // ===== 8. RETORNAR RESPOSTA =====
     return {
-      message: 'Usuário cadastrado com sucesso!',
+      message: isDev
+        ? 'Usuário cadastrado com sucesso! (Email auto-verificado em desenvolvimento)'
+        : 'Usuário cadastrado com sucesso! Verifique seu email para ativar sua conta.',
       userId: user.id,
     };
   }
@@ -231,6 +247,22 @@ export class AuthService {
 
     // Verificar se login foi bem sucedido
     if (user && isPasswordValid) {
+
+      const isNewDevice = await this.isNewDevice(user.id, ipAddress, userAgent);
+
+      if (isNewDevice && process.env.NODE_ENV !== 'development') {
+        try {
+          await this.emailService.sendNewLoginEmail(
+            user.email,
+            user.name,
+            ipAddress,
+            userAgent,
+          );
+          console.log(`📧 Email de novo login enviado para ${user.email}`);
+        } catch (error: any) {
+          console.error(`❌ Erro ao enviar email de novo login:`, error.message);
+        }
+      }
       // Log de login bem sucedido
       await this.auditLogService.log(
         user.id,
@@ -287,6 +319,23 @@ export class AuthService {
       refreshToken: tokens.refreshToken,
       expiresIn: this.configService.get('jwt.accessExpiresIn'),
     };
+  }
+
+  private async isNewDevice(userId: string, ip: string, userAgent: string): Promise<boolean> {
+    const lastLogin = await this.auditLogService.getUserLogs(userId, {
+      action: AuditAction.LOGIN,
+      limit: 1,
+    });
+
+    if (lastLogin.logs.length === 0) {
+      return true; // Primeiro login
+    }
+
+    const last = lastLogin.logs[0];
+    const lastIp = last.ipAddress;
+    const lastAgent = last.userAgent;
+
+    return lastIp !== ip || lastAgent !== userAgent;
   }
 
   // ===== REFRESH TOKEN =====
@@ -394,41 +443,53 @@ export class AuthService {
   }
 
   // ===== RECUPERAÇÃO DE SENHA =====
+  // src/auth/auth.service.ts
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto, req?: FastifyRequest) {
-
     const { email } = forgotPasswordDto;
 
+    // ===== 1. BUSCAR USUÁRIO =====
     const user = await this.userRepository.findOne({ where: { email } });
+
+    // ===== 2. NÃO REVELAR SE O EMAIL EXISTE (SEGURANÇA) =====
     if (!user) {
+      // Sempre retornar a mesma mensagem para não expor se o email existe
       return {
         message: 'Se o email existir, enviaremos um link de recuperação'
       };
     }
 
+    // ===== 3. GERAR TOKEN DE RECUPERAÇÃO =====
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.passwordResetToken = resetToken;
-    user.passwordResetTokenExpires = addMinutes(new Date(), 60);
+    user.passwordResetTokenExpires = addMinutes(new Date(), 60); // 1 hora
     await this.userRepository.save(user);
 
-    await this.emailService.sendPasswordResetEmail(
-      user.email,
-      user.name,
-      resetToken
-    );
-
-    await this.logAuthEvent(user.id, 'FORGOT_PASSWORD');
-
-
-    if (user) {
-      await this.auditLogService.log(
-        user.id,
-        AuditAction.PASSWORD_RESET,
-        {},
-        req,
-        `Solicitação de reset de senha para ${user.email}`,
+    // ===== 4. ENVIAR EMAIL DE RECUPERAÇÃO =====
+    try {
+      await this.emailService.sendPasswordResetEmail(
+        user.email,
+        user.name,
+        resetToken
       );
+      console.log(`📧 Email de recuperação enviado para ${user.email}`);
+    } catch (error: any) {
+      console.error(`❌ Erro ao enviar email de recuperação para ${user.email}:`, error.message);
+      // Não bloquear o fluxo se o email falhar
     }
 
+    // ===== 5. LOG DE AUDITORIA =====
+    await this.auditLogService.log(
+      user.id,
+      AuditAction.PASSWORD_RESET,
+      {
+        email: user.email,
+        requestedAt: new Date().toISOString(),
+      },
+      req,
+      `Solicitação de reset de senha para ${user.email}`,
+    );
+
+    // ===== 6. RETORNAR MENSAGEM (MESMA PARA SEGURANÇA) =====
     return {
       message: 'Se o email existir, enviaremos um link de recuperação'
     };
