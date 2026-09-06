@@ -20,18 +20,34 @@ import {
   LoginTwoFactorDto,
 } from './dto/two-factor.dto';
 import { Public } from './decorators/public.decorator';
+import { ApiBearerAuth, ApiBody, ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('2FA')
 @Controller('2fa')
 @UseGuards(JwtAuthGuard)
 export class TwoFactorController {
   constructor(
     private twoFactorService: TwoFactorService,
     private authService: AuthService,
-  ) {}
+  ) { }
 
   // ===== GERAR QR CODE =====
   @UseGuards(JwtAuthGuard)
-  @Get('generate')
+  @ApiBearerAuth()
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Gerar QR Code para 2FA' })
+  @ApiResponse({
+    status: 200,
+    description: 'QR Code gerado com sucesso',
+    schema: {
+      example: {
+        secret: 'JBSWY3DPEHPK3PXP',
+        qrCode: 'data:image/png;base64,...',
+        otpauthUrl: 'otpauth://totp/MeuApp:user@email.com?secret=...',
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Não autenticado' })
   async generateSecret(@Request() req: any) {
     return this.twoFactorService.generateTwoFactorSecret(req.user.userId);
   }
@@ -39,6 +55,12 @@ export class TwoFactorController {
   // ===== ATIVAR 2FA =====
   @UseGuards(JwtAuthGuard)
   @Post('enable')
+  @ApiBearerAuth()
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Ativar 2FA' })
+  @ApiResponse({ status: 200, description: '2FA ativado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Token 2FA inválido' })
+  @ApiBody({ type: EnableTwoFactorDto })
   async enableTwoFactor(
     @Request() req: any,
     @Body() enableDto: EnableTwoFactorDto,
@@ -55,6 +77,12 @@ export class TwoFactorController {
   // ===== DESATIVAR 2FA =====
   @UseGuards(JwtAuthGuard)
   @Post('disable')
+  @ApiBearerAuth()
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Desativar 2FA' })
+  @ApiResponse({ status: 200, description: '2FA desativado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Token 2FA inválido' })
+  @ApiBody({ type: EnableTwoFactorDto })
   async disableTwoFactor(
     @Request() req: any,
     @Body() enableDto: EnableTwoFactorDto,
@@ -69,6 +97,19 @@ export class TwoFactorController {
   // ===== STATUS DO 2FA =====
   @UseGuards(JwtAuthGuard)
   @Get('status')
+  @ApiBearerAuth()
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Verificar status do 2FA' })
+  @ApiResponse({
+    status: 200,
+    description: 'Status do 2FA',
+    schema: {
+      example: {
+        enabled: true,
+        hasSecret: true,
+      },
+    },
+  })
   async getStatus(@Request() req: any) {
     return this.twoFactorService.getTwoFactorStatus(req.user.userId);
   }
@@ -76,6 +117,11 @@ export class TwoFactorController {
   // ===== REGENERAR BACKUP CODES =====
   @UseGuards(JwtAuthGuard)
   @Post('regenerate-backup-codes')
+  @ApiBearerAuth()
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Regenerar códigos de backup 2FA' })
+  @ApiResponse({ status: 200, description: 'Códigos regenerados com sucesso' })
+  @ApiBody({ type: EnableTwoFactorDto })
   async regenerateBackupCodes(
     @Request() req: any,
     @Body() enableDto: EnableTwoFactorDto,
@@ -90,6 +136,10 @@ export class TwoFactorController {
   // ===== LOGIN COM 2FA =====
   @Public()
   @Post('login')
+  @ApiOperation({ summary: 'Login com 2FA' })
+  @ApiResponse({ status: 200, description: 'Login com 2FA bem-sucedido' })
+  @ApiResponse({ status: 401, description: 'Credenciais ou token 2FA inválidos' })
+  @ApiBody({ type: LoginTwoFactorDto })
   async loginWithTwoFactor(
     @Body() loginDto: LoginTwoFactorDto,
     @Ip() ip: string,
@@ -106,7 +156,7 @@ export class TwoFactorController {
 
     // Configurar cookies
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     response.setCookie('access_token', result.accessToken, {
       httpOnly: true,
       secure: isProduction,
