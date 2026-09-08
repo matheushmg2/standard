@@ -32,6 +32,7 @@ export class TwoFactorController {
   ) { }
 
   // ===== GERAR QR CODE =====
+  @Get('generate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiCookieAuth()

@@ -16,6 +16,7 @@ import { TwoFactorService } from './two-factor.service';
 import { PasswordHistory } from '../users/entities/password-history.entity';
 import { SessionsModule } from '../sessions/sessions.module';
 import { PasswordHistoryService } from '../users/password-history.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PasswordHistoryService } from '../users/password-history.service';
       }),
       inject: [ConfigService],
     }),
+    UsersModule,
     RedisModule,
     EmailModule,
     LogsModule,

@@ -30,12 +30,14 @@ import { TwoFactorService } from './two-factor.service';
 import { LoginTwoFactorDto } from './dto/two-factor.dto';
 import { SessionsService } from '../sessions/sessions.service';
 import { PasswordHistoryService } from '../users/password-history.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
     private redisService: RedisService,
@@ -59,27 +61,23 @@ export class AuthService {
     }
 
     // ===== 2. VERIFICAR SE EMAIL JÁ EXISTE =====
-    const existingUser = await this.userRepository.findOne({
-      where: { email }
-    });
+    // 🔥 AGORA USA O USERSERVICE
+    const existingUser = await this.usersService.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('Email já cadastrado');
     }
 
     // ===== 3. VERIFICAR CPF/CNPJ SE FORNECIDO =====
     if (optionalData.cpf) {
-      const existingCpf = await this.userRepository.findOne({
-        where: { cpf: optionalData.cpf }
-      });
+      // 🔥 VOCÊ PODE CRIAR UM MÉTODO findByCpf NO USERSERVICE
+      const existingCpf = await this.usersService.findByCpf(optionalData.cpf);
       if (existingCpf) {
         throw new ConflictException('CPF já cadastrado');
       }
     }
 
     if (optionalData.cnpj) {
-      const existingCnpj = await this.userRepository.findOne({
-        where: { cnpj: optionalData.cnpj }
-      });
+      const existingCnpj = await this.usersService.findByCnpj(optionalData.cnpj);
       if (existingCnpj) {
         throw new ConflictException('CNPJ já cadastrado');
       }
@@ -90,8 +88,8 @@ export class AuthService {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = addMinutes(new Date(), 24 * 60);
 
-    // ===== 5. CRIAR USUÁRIO =====
-    const user = this.userRepository.create({
+    // ===== 5. CRIAR USUÁRIO VIA USERSERVICE =====
+    const user = await this.usersService.create({
       email,
       password,
       name,
@@ -100,8 +98,6 @@ export class AuthService {
       emailVerificationToken: isDev ? undefined : verificationToken,
       emailVerificationTokenExpires: isDev ? undefined : verificationExpires,
     });
-
-    await this.userRepository.save(user);
 
     // 🔥 ADICIONAR SENHA AO HISTÓRICO
     await this.passwordHistoryService.addToHistory(user, user.password);
@@ -198,9 +194,7 @@ export class AuthService {
   async login(loginDto: LoginDto, ipAddress: string, userAgent: string, req?: FastifyRequest) {
     const { email, password } = loginDto;
 
-    const user = await this.userRepository.findOne({
-      where: { email }
-    });
+    const user = await this.usersService.findByEmail(email);
 
     if (!user) {
       throw new UnauthorizedException('Credenciais inválidas');
@@ -451,7 +445,7 @@ export class AuthService {
     const { email } = forgotPasswordDto;
 
     // ===== 1. BUSCAR USUÁRIO =====
-    const user = await this.userRepository.findOne({ where: { email } });
+    const user = await this.usersService.findByEmail(email);
 
     // ===== 2. NÃO REVELAR SE O EMAIL EXISTE (SEGURANÇA) =====
     if (!user) {

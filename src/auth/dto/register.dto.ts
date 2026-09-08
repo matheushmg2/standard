@@ -48,6 +48,7 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20, { message: 'RG deve ter no máximo 13 caracteres' })
   rg?: string;
 
   @ApiProperty({ example: '+5511999999999', required: false })
@@ -59,7 +60,7 @@ export class RegisterDto {
   @IsPhoneNumber('BR', { message: 'WhatsApp inválido' })
   whatsapp?: string;
 
-  @ApiProperty({ example: '01012000', required: false })
+  @ApiProperty({ example: '01-01-0001', required: false })
   @IsOptional()
   @IsDateString({}, { message: 'Data de nascimento inválida' })
   birthDate?: string;
