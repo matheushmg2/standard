@@ -31,7 +31,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
       new TableColumn({
         name: 'rg',
         type: 'varchar',
-        length: '12',
+        length: '13',
         isNullable: true,
       })
     );

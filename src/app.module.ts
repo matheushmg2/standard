@@ -14,6 +14,7 @@ import { AuditLog } from './logs/entities/audit-log.entity'; // ← Importar a e
 import { SessionsModule } from './sessions/sessions.module';
 import { PasswordHistory } from './users/entities/password-history.entity';
 import { Session } from './sessions/entities/session.entity';
+import { GeocodingModule } from './geocoding/geocoding.module';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { Session } from './sessions/entities/session.entity';
     RedisModule,
     EmailModule,
     LogsModule,
-    SessionsModule, // ← Adicionar LogsModule
+    SessionsModule,
+    GeocodingModule, // ← Adicionar LogsModule
   ],
   providers: [
     {

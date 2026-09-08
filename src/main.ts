@@ -9,11 +9,9 @@ import { ConfigService } from '@nestjs/config';
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyCors from '@fastify/cors';
-// 🔥 REMOVER fastifySwagger e fastifySwaggerUi
-// import fastifySwagger from '@fastify/swagger';
-// import fastifySwaggerUi from '@fastify/swagger-ui';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -56,7 +54,7 @@ async function bootstrap() {
     },
   });
 
-  // ===== SWAGGER (APENAS COM @nestjs/swagger) =====
+  // ===== SWAGGER =====
   const config = new DocumentBuilder()
     .setTitle('Standard API')
     .setDescription('API completa de autenticação com 2FA, sessões e logs')
@@ -72,7 +70,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // Pipes de validação
+  // ===== FILTRO GLOBAL DE EXCEÇÕES =====
+  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  // ===== PIPES DE VALIDAÇÃO =====
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -81,7 +82,7 @@ async function bootstrap() {
     })
   );
 
-  // Prefixo global
+  // ===== PREFIXO GLOBAL =====
   app.setGlobalPrefix('api');
 
   const port = configService.get<number>('port') || 3000;

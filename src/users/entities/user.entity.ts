@@ -100,7 +100,7 @@ export class User {
   @Column({ nullable: true, unique: true })
   cnpj?: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, unique: true, length: 13 })
   rg?: string;
 
   // Dados Pessoais
@@ -159,7 +159,7 @@ export class User {
 
   // ===== MÉTODOS EXISTENTES =====
   @BeforeInsert()
-  @BeforeUpdate()
+  // @BeforeUpdate()
   async hashPassword() {
     if (this.password) {
       const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12');

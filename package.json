@@ -5,7 +5,7 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
-  "scripts": {
+    "scripts": {
     "check:env": "ts-node scripts/check-env.ts",
     "prebuild": "yarn check:env",
     "prestart:dev": "yarn check:env",
@@ -18,6 +18,8 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+
+    "_MIGRATION": "===== SCRIPTS DE MIGRATION =====",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "typeorm:run": "yarn typeorm migration:run -d ./data-source.ts",
     "typeorm:generate": "yarn typeorm migration:generate -d ./data-source.ts",
@@ -30,6 +32,16 @@
     "migration:revert": "yarn typeorm migration:revert -d ./data-source.ts",
     "migration:show": "yarn typeorm migration:show -d ./data-source.ts",
     "db:seed": "yarn typeorm migration:run -d ./data-source.ts",
+    
+    "_DOCKER": "===== SCRIPTS PARA DOCKER =====",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:restart": "docker-compose restart",
+    "docker:reset": "./shell/reset-db.sh",
+    "docker:start-dev": "./shell/start-dev.sh",
+    
+    "_TESTE": "// ===== SCRIPTS DE TESTE =====",
     "lint": "oxlint src/ test/",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -58,6 +70,7 @@
     "@types/ioredis": "^5.0.0",
     "@types/nodemailer": "^8.0.1",
     "@types/uuid": "^11.0.0",
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
