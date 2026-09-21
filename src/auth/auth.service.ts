@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { addMinutes, addDays, isAfter } from 'date-fns';
+import { addMinutes, isAfter } from 'date-fns';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -31,6 +31,7 @@ import { LoginTwoFactorDto } from './dto/two-factor.dto';
 import { SessionsService } from '../sessions/sessions.service';
 import { PasswordHistoryService } from '../users/password-history.service';
 import { UsersService } from '../users/users.service';
+import { LoggerService } from '../logger/logger.service';
 
 @Injectable()
 export class AuthService {
@@ -46,6 +47,7 @@ export class AuthService {
     private twoFactorService: TwoFactorService,
     private sessionsService: SessionsService,
     private passwordHistoryService: PasswordHistoryService,
+    private logger: LoggerService,
   ) { }
 
   // ===== REGISTRO =====
@@ -110,9 +112,27 @@ export class AuthService {
           user.name,
           verificationToken,
         );
-        console.log(`✅ Email de verificação enviado para ${user.email}`);
+        
+        // 🔥 SUBSTITUIR console.log
+        this.logger.infoWithMetadata(
+          'AuthService',
+          `Email de verificação enviado`,
+          {
+            email: user.email,
+            userId: user.id,
+          }
+        );
       } catch (error: any) {
-        console.error(`❌ Erro ao enviar email para ${user.email}:`, error.message);
+        // 🔥 SUBSTITUIR console.error
+        this.logger.errorWithMetadata(
+          'AuthService',
+          `Erro ao enviar email de verificação`,
+          {
+            email: user.email,
+            userId: user.id,
+            error: error.message,
+          }
+        );
       }
     }
 
@@ -273,7 +293,7 @@ export class AuthService {
     );
 
     // Verificar se é novo dispositivo
-    const isNewDevice = await this.isNewDevice(user.id, ipAddress, userAgent);
+    const isNewDevice = await this.isNewDevice(user.id, ipAddress);
 
     if (isNewDevice && process.env.NODE_ENV !== 'development') {
       try {
@@ -283,9 +303,28 @@ export class AuthService {
           ipAddress,
           userAgent,
         );
-        console.log(`📧 Email de novo login enviado para ${user.email}`);
+        // 🔥 SUBSTITUIR console.log
+        this.logger.infoWithMetadata(
+          'AuthService',
+          `Email de novo login enviado`,
+          {
+            email: user.email,
+            userId: user.id,
+            ip: ipAddress,
+            userAgent,
+          }
+        );
       } catch (error: any) {
-        console.error(`❌ Erro ao enviar email de novo login:`, error.message);
+        // 🔥 SUBSTITUIR console.error
+        this.logger.errorWithMetadata(
+          'AuthService',
+          `Erro ao enviar email de novo login`,
+          {
+            email: user.email,
+            userId: user.id,
+            error: error.message,
+          }
+        );
       }
     }
 
@@ -315,7 +354,7 @@ export class AuthService {
   }
 
   // ===== MÉTODO AUXILIAR: NOVO DISPOSITIVO =====
-  private async isNewDevice(userId: string, ip: string, userAgent: string): Promise<boolean> {
+  private async isNewDevice(userId: string, ip: string): Promise<boolean> {
     // Buscar a última sessão do usuário
     const lastSession = await this.sessionsService.getUserSessions(userId);
 
@@ -382,7 +421,7 @@ export class AuthService {
         expiresIn: this.configService.get('jwt.accessExpiresIn'),
       };
 
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Refresh token inválido ou expirado');
     }
   }
@@ -422,7 +461,7 @@ export class AuthService {
             ttl
           );
         }
-      } catch (e) {
+      } catch {
         // Ignorar erro no decode
       }
     }
@@ -468,10 +507,26 @@ export class AuthService {
         user.name,
         resetToken
       );
-      console.log(`📧 Email de recuperação enviado para ${user.email}`);
+      // 🔥 SUBSTITUIR console.log
+      this.logger.infoWithMetadata(
+        'AuthService',
+        `Email de recuperação enviado`,
+        {
+          email: user.email,
+          userId: user.id,
+        }
+      );
     } catch (error: any) {
-      console.error(`❌ Erro ao enviar email de recuperação para ${user.email}:`, error.message);
-      // Não bloquear o fluxo se o email falhar
+       // 🔥 SUBSTITUIR console.error
+      this.logger.errorWithMetadata(
+        'AuthService',
+        `Erro ao enviar email de recuperação`,
+        {
+          email: user.email,
+          userId: user.id,
+          error: error.message,
+        }
+      );
     }
 
     // ===== 5. LOG DE AUDITORIA =====
@@ -493,7 +548,7 @@ export class AuthService {
   }
 
   // ===== RESET PASSWORD =====
-  async resetPassword(resetPasswordDto: ResetPasswordDto, req?: FastifyRequest) {
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const { token, newPassword } = resetPasswordDto;
 
     const user = await this.userRepository.findOne({
@@ -645,7 +700,7 @@ export class AuthService {
       }
 
       return { userId: payload.sub, email: payload.email, role: payload.role };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Token inválido');
     }
   }

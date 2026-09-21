@@ -1,17 +1,18 @@
 // src/logs/audit-log.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, Between, LessThan, In } from 'typeorm';
+import { Repository, MoreThan, LessThan, In } from 'typeorm';
 import { FastifyRequest } from 'fastify'; // ← Importar FastifyRequest
 
 import { AuditLog, AuditAction } from './entities/audit-log.entity';
-import { User } from '../users/entities/user.entity';
+import { LoggerService } from '../logger/logger.service';
 
 @Injectable()
 export class AuditLogService {
   constructor(
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
+    private logger: LoggerService,
   ) {}
 
   async log(
@@ -33,6 +34,21 @@ export class AuditLogService {
       ipAddress: ip,
       userAgent: req?.headers?.['user-agent'] as string,
     });
+
+    // LOG ESTRUTURADO COM PINO
+    this.logger.infoWithMetadata(
+      'AuditLog',
+      `Ação registrada: ${action}${description ? ` - ${description}` : ''}`,
+      {
+        userId,
+        action,
+        description,
+        ip,
+        userAgent: req?.headers?.['user-agent'],
+        ...metadata,
+      }
+    );
+
 
     return this.auditLogRepository.save(log);
   }

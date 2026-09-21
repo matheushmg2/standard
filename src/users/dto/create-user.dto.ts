@@ -10,7 +10,6 @@ import {
   IsDateString,
   IsPhoneNumber,
   IsUrl,
-  IsBoolean,
 } from 'class-validator';
 
 export class CreateUserDto {

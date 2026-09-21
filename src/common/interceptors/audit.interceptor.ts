@@ -38,7 +38,7 @@ export class AuditInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap({
-        next: (data) => {
+        next: () => {
           this.auditLogService.log(
             userId,
             action,

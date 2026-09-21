@@ -3,12 +3,16 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { createTestAccount } from 'nodemailer';
+import { LoggerService } from '../logger/logger.service';
 
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private logger: LoggerService, // ← INJETAR AQUI
+  ) {
     this.initTransporter();
   }
 
@@ -17,9 +21,14 @@ export class EmailService {
     const user = this.configService.get('SMTP_USER');
     const pass = this.configService.get('SMTP_PASS');
 
-    // Se não tiver credenciais configuradas, usar Ethereal (email fake para testes)
+    // Se não tiver credenciais configuradas, usar Ethereal
     if (!host || !user || !pass || pass === 'sua-senha-app') {
-      console.log('📧 Usando Ethereal (email fake) para testes...');
+      this.logger.warnWithMetadata(
+        'EmailService',
+        'Usando Ethereal (email fake) para testes...',
+        {}
+      );
+
       const testAccount = await createTestAccount();
       
       this.transporter = nodemailer.createTransport({
@@ -32,14 +41,19 @@ export class EmailService {
         },
       });
 
-      console.log(`📥 Verifique os emails em: https://ethereal.email/login`);
-      console.log(`📧 Email: ${testAccount.user}`);
-      console.log(`🔑 Senha: ${testAccount.pass}`);
+      this.logger.infoWithMetadata(
+        'EmailService',
+        'Ethereal configurado com sucesso',
+        {
+          email: testAccount.user,
+          loginUrl: 'https://ethereal.email/login',
+        }
+      );
       
       return;
     }
 
-    // Configuração do Gmail
+    // Configuração do Gmail/SMTP
     this.transporter = nodemailer.createTransport({
       host: host,
       port: parseInt(this.configService.get('SMTP_PORT') || '587'),
@@ -48,7 +62,6 @@ export class EmailService {
         user: user,
         pass: pass,
       },
-      // Configurações específicas para Gmail
       tls: {
         rejectUnauthorized: false,
       },
@@ -57,17 +70,30 @@ export class EmailService {
       maxMessages: 100,
     });
 
-    // Verificar conexão
-    this.verifyConnection();
+    await this.verifyConnection();
   }
 
   private async verifyConnection() {
     try {
       await this.transporter.verify();
-      console.log('✅ Servidor de email configurado com sucesso!');
+      this.logger.infoWithMetadata(
+        'EmailService',
+        'Servidor de email configurado com sucesso!',
+        {}
+      );
     } catch (error: any) {
-      console.error('❌ Erro ao conectar com servidor de email:', error.message);
-      console.log('📧 Usando modo de fallback (emails serão logados no console)');
+      this.logger.errorWithMetadata(
+        'EmailService',
+        'Erro ao conectar com servidor de email',
+        {
+          error: error.message,
+        }
+      );
+      this.logger.warnWithMetadata(
+        'EmailService',
+        'Usando modo de fallback (emails serão logados no console)',
+        {}
+      );
     }
   }
 
@@ -128,6 +154,18 @@ export class EmailService {
       subject: 'Verifique seu email - MeuApp',
       html,
     });
+
+    // 🔥 LOG DE SUCESSO
+    this.logger.infoWithMetadata(
+      'EmailService',
+      `Email de verificação enviado para ${email}`,
+      {
+        email,
+        name,
+        subject: 'Verifique seu email - MeuApp',
+        type: 'verification',
+      }
+    );
   }
 
   // ===== ENVIAR EMAIL DE RECUPERAÇÃO DE SENHA =====
@@ -187,6 +225,18 @@ export class EmailService {
       subject: 'Recuperação de Senha - MeuApp',
       html,
     });
+
+    // 🔥 LOG DE SUCESSO
+    this.logger.infoWithMetadata(
+      'EmailService',
+      `Email de recuperação enviado para ${email}`,
+      {
+        email,
+        name,
+        subject: 'Recuperação de Senha - MeuApp',
+        type: 'password_reset',
+      }
+    );
   }
 
   // ===== ENVIAR EMAIL DE NOVO LOGIN =====
@@ -233,6 +283,20 @@ export class EmailService {
       subject: '🔔 Novo Login Detectado - MeuApp',
       html,
     });
+
+    // 🔥 LOG DE SUCESSO
+    this.logger.infoWithMetadata(
+      'EmailService',
+      `Email de novo login enviado para ${email}`,
+      {
+        email,
+        name,
+        ip,
+        device,
+        subject: 'Novo Login Detectado - MeuApp',
+        type: 'new_login',
+      }
+    );
   }
 
   // ===== MÉTODO BASE PARA ENVIAR EMAIL =====
@@ -253,15 +317,42 @@ export class EmailService {
         text: options.text || this.htmlToText(options.html),
       });
 
-      console.log(`✅ Email enviado para ${options.to}`);
+      // 🔥 LOG DE SUCESSO NO ENVIO
+      this.logger.infoWithMetadata(
+        'EmailService',
+        `Email enviado com sucesso para ${options.to}`,
+        {
+          to: options.to,
+          subject: options.subject,
+          messageId: result.messageId,
+        }
+      );
+
       return result;
     } catch (error: any) {
-      console.error(`❌ Erro ao enviar email para ${options.to}:`, error.message);
+      // 🔥 LOG DE ERRO NO ENVIO
+      this.logger.errorWithMetadata(
+        'EmailService',
+        `Erro ao enviar email para ${options.to}`,
+        {
+          to: options.to,
+          subject: options.subject,
+          error: error.message,
+          code: error.code,
+        }
+      );
+
       // Fallback: log do email
-      console.log('📧 Conteúdo do email (fallback):');
-      console.log(`To: ${options.to}`);
-      console.log(`Subject: ${options.subject}`);
-      console.log(`HTML: ${options.html.substring(0, 200)}...`);
+      this.logger.warnWithMetadata(
+        'EmailService',
+        'Fallback: Conteúdo do email (não enviado)',
+        {
+          to: options.to,
+          subject: options.subject,
+          htmlPreview: options.html.substring(0, 200) + '...',
+        }
+      );
+
       throw error;
     }
   }
@@ -278,8 +369,20 @@ export class EmailService {
   async testConnection() {
     try {
       await this.transporter.verify();
+      this.logger.infoWithMetadata(
+        'EmailService',
+        'Teste de conexão com servidor de email: OK',
+        {}
+      );
       return { success: true, message: 'Conexão com servidor de email OK' };
     } catch (error: any) {
+      this.logger.errorWithMetadata(
+        'EmailService',
+        'Teste de conexão com servidor de email: FALHOU',
+        {
+          error: error.message,
+        }
+      );
       return { success: false, message: error.message };
     }
   }
