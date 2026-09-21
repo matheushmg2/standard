@@ -6,7 +6,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   BeforeInsert,
-  BeforeUpdate,
   OneToMany
 } from 'typeorm';
 import { Exclude } from 'class-transformer';

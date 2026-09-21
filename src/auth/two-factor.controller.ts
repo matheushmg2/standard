@@ -16,7 +16,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import {
   EnableTwoFactorDto,
-  VerifyTwoFactorDto,
   LoginTwoFactorDto,
 } from './dto/two-factor.dto';
 import { Public } from './decorators/public.decorator';
@@ -65,8 +64,6 @@ export class TwoFactorController {
   async enableTwoFactor(
     @Request() req: any,
     @Body() enableDto: EnableTwoFactorDto,
-    @Ip() ip: string,
-    @Headers('user-agent') userAgent: string,
   ) {
     return this.twoFactorService.enableTwoFactor(
       req.user.userId,

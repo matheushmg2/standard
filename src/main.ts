@@ -12,6 +12,8 @@ import fastifyCors from '@fastify/cors';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { LoggerService } from './logger/logger.service';
+
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -65,6 +67,7 @@ async function bootstrap() {
     .addTag('Logs', 'Logs de auditoria e atividades')
     .addBearerAuth()
     .addCookieAuth('access_token')
+    .addServer('http://localhost:4000/api', 'Servidor Local') // ← ADICIONAR ESTA LINHA
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -88,8 +91,18 @@ async function bootstrap() {
   const port = configService.get<number>('port') || 3000;
   await app.listen(port, '0.0.0.0');
 
-  console.log(`🚀 Servidor rodando em: http://localhost:${port}`);
-  console.log(`📚 Documentação Swagger: http://localhost:${port}/api/docs`);
+  // 🔥 SUBSTITUIR console.log
+  const logger = app.get(LoggerService);
+  logger.infoWithMetadata(
+    'Bootstrap',
+    `🚀 Servidor rodando em: http://localhost:${port}`,
+    { port }
+  );
+  logger.infoWithMetadata(
+    'Bootstrap',
+    `📚 Documentação Swagger: http://localhost:${port}/api/docs`,
+    { port }
+  );
 }
 
 bootstrap();

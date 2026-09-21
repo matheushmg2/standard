@@ -14,7 +14,9 @@ import { AuditLog } from './logs/entities/audit-log.entity'; // ← Importar a e
 import { SessionsModule } from './sessions/sessions.module';
 import { PasswordHistory } from './users/entities/password-history.entity';
 import { Session } from './sessions/entities/session.entity';
-import { GeocodingModule } from './geocoding/geocoding.module';
+import { HealthModule } from './health/health.module';
+import { LoggerModule } from './logger/logger.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -39,12 +41,14 @@ import { GeocodingModule } from './geocoding/geocoding.module';
       }),
       inject: [ConfigService],
     }),
+    LoggerModule,
     AuthModule,
     RedisModule,
     EmailModule,
     LogsModule,
     SessionsModule,
-    GeocodingModule, // ← Adicionar LogsModule
+    UsersModule,
+    HealthModule,
   ],
   providers: [
     {
@@ -53,4 +57,4 @@ import { GeocodingModule } from './geocoding/geocoding.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

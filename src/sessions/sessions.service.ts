@@ -1,5 +1,5 @@
 // src/sessions/sessions.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, Not } from 'typeorm'; // ← Adicionar Not
 import { Session } from './entities/session.entity';
