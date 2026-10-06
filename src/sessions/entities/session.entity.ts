@@ -22,7 +22,10 @@ export class Session {
   userId: string;
 
   @Column({ unique: true })
-  refreshToken: string;
+  refreshTokenHash: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  revokedAt?: Date;
 
   @Column({ nullable: true })
   userAgent?: string;

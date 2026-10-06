@@ -1,15 +1,19 @@
 // src/auth/auth.controller.ts
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
-  Controller,
-  Post,
   Body,
-  UseGuards,
-  Request,
+  Controller,
   Get,
-  Ip,
   Headers,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Post,
+  Query,
+  Request,
   Res,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCookieAuth, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -44,14 +48,11 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimitGuard)
   @ApiOperation({ summary: 'Autenticar usuário' })
   @ApiResponse({ status: 200, description: 'Login bem-sucedido' })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
-  @ApiResponse({
-    status: 401,
-    description: '2FA necessário (retorna requiresTwoFactor: true)'
-  })
   @ApiBody({ type: LoginDto })
   async login(
     @Body() loginDto: LoginDto,
@@ -60,17 +61,25 @@ export class AuthController {
     @Request() req: FastifyRequest,
     @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    const result = await this.authService.login(loginDto, ip, userAgent, req);
+    const result = await this.authService.login(
+      loginDto,
+      ip,
+      userAgent,
+      req,
+    );
 
-    // Verificar se precisa de 2FA
     if (result.requiresTwoFactor) {
       return result;
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // Garantir que os tokens existem antes de setar cookies
-    if (result.accessToken && result.refreshToken) {
+    const {
+      refreshToken,
+      ...responseBody
+    } = result;
+
+    if (result.accessToken && refreshToken) {
       response.setCookie('access_token', result.accessToken, {
         httpOnly: true,
         secure: isProduction,
@@ -79,62 +88,133 @@ export class AuthController {
         path: '/',
       });
 
-      response.setCookie('refresh_token', result.refreshToken, {
+      response.setCookie('refresh_token', refreshToken, {
         httpOnly: true,
         secure: isProduction,
         sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60,
-        path: '/auth/refresh',
+        path: '/api/auth',
       });
     }
 
-    return result;
+    return responseBody;
   }
+
 
   @Public()
   @Post('refresh')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Renovar tokens de acesso' })
   @ApiResponse({ status: 200, description: 'Tokens renovados com sucesso' })
-  @ApiResponse({ status: 401, description: 'Refresh token inválido ou expirado' })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token inválido ou expirado',
+  })
   @ApiBody({ type: RefreshTokenDto })
   async refresh(
-    @Body() refreshTokenDto: RefreshTokenDto,
+    @Body() body: Partial<RefreshTokenDto>,
+    @Request()
+    req: FastifyRequest & {
+      body?: Partial<RefreshTokenDto>;
+    },
     @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    const result = await this.authService.refreshTokens(refreshTokenDto);
+    const refreshToken =
+      req.cookies?.refresh_token ||
+      body?.refreshToken;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException(
+        'Refresh token não informado',
+      );
+    }
+
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    const result = await this.authService.refreshTokens({
+      refreshToken,
+    });
+
+    const {
+      refreshToken: newRefreshToken,
+      ...responseBody
+    } = result;
 
     response.setCookie('access_token', result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       sameSite: 'strict',
       maxAge: 15 * 60,
       path: '/',
     });
 
-    return result;
+    response.setCookie('refresh_token', newRefreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60,
+      path: '/api/auth',
+    });
+
+    return responseBody;
   }
+
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
+  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Fazer logout' })
-  @ApiResponse({ status: 200, description: 'Logout realizado com sucesso' })
-  @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logout realizado com sucesso',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Não autenticado',
+  })
   async logout(
-    @Request() req: any,
+    @Request() req: FastifyRequest & {
+      user: {
+        userId: string;
+      };
+      body?: {
+        refreshToken?: string;
+      };
+    },
     @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    const accessToken = req.cookies?.access_token || req.headers.authorization?.split(' ')[1];
-    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
+    const authorizationHeader = req.headers.authorization;
 
-    await this.authService.logout(req.user.userId, accessToken, refreshToken, req);
+    const accessToken =
+      req.cookies?.access_token ||
+      authorizationHeader?.split(' ')[1];
 
-    response.clearCookie('access_token', { path: '/' });
-    response.clearCookie('refresh_token', { path: '/auth/refresh' });
+    const refreshToken =
+      req.cookies?.refresh_token ||
+      req.body?.refreshToken;
 
-    return { message: 'Logout realizado com sucesso' };
+    await this.authService.logout(
+      req.user.userId,
+      accessToken,
+      refreshToken,
+      req,
+    );
+
+    response.clearCookie('access_token', {
+      path: '/',
+    });
+
+    response.clearCookie('refresh_token', {
+      path: '/api/auth',
+    });
+
+    return {
+      message: 'Logout realizado com sucesso',
+    };
   }
+
 
   @Public()
   @Post('forgot-password')

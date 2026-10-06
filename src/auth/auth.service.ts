@@ -112,7 +112,7 @@ export class AuthService {
           user.name,
           verificationToken,
         );
-        
+
         // 🔥 SUBSTITUIR console.log
         this.logger.infoWithMetadata(
           'AuthService',
@@ -342,12 +342,16 @@ export class AuthService {
       `Login realizado de ${userAgent}`,
     );
 
-    const { password: _, refreshToken: __, ...userData } = user;
+    const userData = this.usersService.toResponse(user);
 
     return {
       user: userData,
       accessToken: tokens.accessToken,
+
+      // Necessário internamente para o controller criar o cookie.
+      // O controller não deve enviar este campo no JSON.
       refreshToken: tokens.refreshToken,
+
       sessionId: session.id,
       expiresIn: this.configService.get('jwt.accessExpiresIn'),
     };
@@ -429,54 +433,73 @@ export class AuthService {
   // ===== LOGOUT =====
   async logout(
     userId: string,
-    accessToken: string,
-    refreshToken: string,
+    accessToken?: string,
+    refreshToken?: string,
     req?: FastifyRequest,
   ): Promise<{ message: string }> {
-    // 🔥 ENCERRAR SESSÃO
-    const session = await this.sessionsService.validateSession(refreshToken);
-    if (session) {
-      await this.sessionsService.revokeSession(session.id, userId);
+    if (refreshToken) {
+      const session =
+        await this.sessionsService.validateSession(refreshToken);
+
+      if (session && session.userId === userId) {
+        await this.sessionsService.revokeSession(
+          session.id,
+          userId,
+        );
+      }
+
+      await this.redisService.set(
+        `revoked:${refreshToken}`,
+        'true',
+        7 * 24 * 60 * 60,
+      );
     }
 
-    // Revogar refresh token
-    await this.redisService.set(
-      `revoked:${refreshToken}`,
-      'true',
-      7 * 24 * 60 * 60
-    );
+    // Compatibilidade com o campo legado da entidade User.
+    await this.userRepository.update(userId, {
+      refreshToken: undefined,
+    });
 
-    await this.userRepository.update(userId, { refreshToken: undefined });
-    await this.redisService.del(`refresh_token:${userId}`);
+    await this.redisService.del(
+      `refresh_token:${userId}`,
+    );
 
     if (accessToken) {
       try {
-        const decoded = this.jwtService.decode(accessToken) as any;
-        const exp = decoded?.exp || 0;
-        const ttl = exp - Math.floor(Date.now() / 1000);
+        const decoded = this.jwtService.decode(accessToken) as {
+          exp?: number;
+        } | null;
+
+        const expirationTime = decoded?.exp ?? 0;
+        const currentTime = Math.floor(Date.now() / 1000);
+        const ttl = expirationTime - currentTime;
+
         if (ttl > 0) {
           await this.redisService.set(
             `blacklist:${accessToken}`,
             'true',
-            ttl
+            ttl,
           );
         }
       } catch {
-        // Ignorar erro no decode
+        // O logout não deve falhar apenas porque o token
+        // de acesso não pôde ser decodificado.
       }
     }
 
-    // Log de logout
     await this.auditLogService.log(
       userId,
       AuditAction.LOGOUT,
-      { sessionId: session?.id },
+      {},
       req,
       'Usuário fez logout',
     );
 
-    return { message: 'Logout realizado com sucesso' };
+    return {
+      message: 'Logout realizado com sucesso',
+    };
   }
+
 
   // ===== RECUPERAÇÃO DE SENHA =====
   // src/auth/auth.service.ts
@@ -517,7 +540,7 @@ export class AuthService {
         }
       );
     } catch (error: any) {
-       // 🔥 SUBSTITUIR console.error
+      // 🔥 SUBSTITUIR console.error
       this.logger.errorWithMetadata(
         'AuthService',
         `Erro ao enviar email de recuperação`,
@@ -751,37 +774,71 @@ export class AuthService {
   ) {
     const { email, password, twoFactorToken } = loginDto;
 
-    const user = await this.userRepository.findOne({ where: { email } });
+    const user = await this.userRepository.findOne({
+      where: { email },
+    });
+
     if (!user) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciais inválidas');
+    if (user.isLocked()) {
+      throw new UnauthorizedException(
+        'Conta bloqueada por muitas tentativas. Tente novamente mais tarde.',
+      );
     }
 
-    const { verified } = await this.twoFactorService.verifyTwoFactorLogin(
-      user.id,
-      twoFactorToken,
-      req,
-    );
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException(
+        'Por favor, verifique seu email primeiro',
+      );
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException(
+        'Conta desativada. Contate o suporte.',
+      );
+    }
+
+    const isPasswordValid = await user.comparePassword(password);
+
+    if (!isPasswordValid) {
+      user.incrementLoginAttempts();
+
+      await this.userRepository.save(user);
+
+      throw new UnauthorizedException(
+        'Credenciais inválidas',
+      );
+    }
+
+    const { verified, isBackupCode } =
+      await this.twoFactorService.verifyTwoFactorLogin(
+        user.id,
+        twoFactorToken,
+        req,
+      );
 
     if (!verified) {
-      throw new UnauthorizedException('Token 2FA inválido');
+      throw new UnauthorizedException(
+        'Token 2FA inválido',
+      );
     }
 
     const tokens = await this.generateTokens(user);
 
-    // 🔥 CRIAR SESSÃO
     const session = await this.sessionsService.createSession(
       user,
       tokens.refreshToken,
       req,
     );
 
-    user.refreshToken = tokens.refreshToken;
-    await this.userRepository.save(user);
+    // Atualiza somente o refreshToken.
+    // Não usar save(user), pois o objeto user pode conter
+    // uma lista antiga de códigos de backup.
+    await this.userRepository.update(user.id, {
+      refreshToken: tokens.refreshToken,
+    });
 
     await this.auditLogService.log(
       user.id,
@@ -791,20 +848,28 @@ export class AuthService {
         ip: ipAddress,
         userAgent,
         twoFactor: true,
+        usedBackupCode: isBackupCode,
         sessionId: session.id,
       },
       req,
-      `Login com 2FA realizado de ${userAgent}`,
+      'Login com 2FA realizado',
     );
 
-    const { password: _, refreshToken: __, ...userData } = user;
+    const userData = this.usersService.toResponse(user);
 
     return {
       user: userData,
       accessToken: tokens.accessToken,
+
+      // O controller deve remover este campo do JSON
+      // e enviá-lo somente no cookie HttpOnly.
       refreshToken: tokens.refreshToken,
+
       sessionId: session.id,
-      expiresIn: this.configService.get('jwt.accessExpiresIn'),
+      expiresIn: this.configService.get(
+        'jwt.accessExpiresIn',
+      ),
     };
   }
+
 }

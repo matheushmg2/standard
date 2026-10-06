@@ -1,25 +1,41 @@
 // src/auth/two-factor.service.ts
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
+import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
+import type { FastifyRequest } from 'fastify';
+
 import { User } from '../users/entities/user.entity';
 import { AuditLogService } from '../logs/audit-log.service';
-import { AuditAction } from '../logs/entities/audit-log.entity';
-import { FastifyRequest } from 'fastify';
+import {
+  AuditAction,
+} from '../logs/entities/audit-log.entity';
+
+type TwoFactorVerificationResult = {
+  verified: boolean;
+  isBackupCode: boolean;
+};
 
 @Injectable()
 export class TwoFactorService {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
-    private auditLogService: AuditLogService,
-  ) {}
+    private readonly userRepository: Repository<User>,
+    private readonly auditLogService: AuditLogService,
+  ) { }
 
-  // ===== GERAR SEGREDO 2FA =====
   async generateTwoFactorSecret(userId: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
     if (!user) {
       throw new BadRequestException('Usuário não encontrado');
     }
@@ -35,45 +51,59 @@ export class TwoFactorService {
 
     user.twoFactorSecret = secret.base32;
     user.twoFactorEnabled = false;
+    user.twoFactorBackupCodes = undefined;
+
     await this.userRepository.save(user);
 
-    let qrCodeUrl = '';
-    if (secret.otpauth_url) {
-      qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
-    }
+    const qrCode = secret.otpauth_url
+      ? await QRCode.toDataURL(secret.otpauth_url)
+      : '';
 
     return {
       secret: secret.base32,
-      qrCode: qrCodeUrl,
+      qrCode,
       otpauthUrl: secret.otpauth_url,
     };
   }
 
-  // ===== ATIVAR 2FA =====
-  async enableTwoFactor(userId: string, token: string, req?: FastifyRequest) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+  async enableTwoFactor(
+    userId: string,
+    token: string,
+    req?: FastifyRequest,
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
     if (!user) {
       throw new BadRequestException('Usuário não encontrado');
     }
 
-    if (!user.twoFactorSecret) {
-      throw new BadRequestException('Segredo 2FA não encontrado. Gere um novo.');
+    if (user.twoFactorEnabled) {
+      throw new BadRequestException('2FA já está ativado');
     }
 
-    const verified = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
-      encoding: 'base32',
-      token,
-      window: 1,
-    });
+    if (!user.twoFactorSecret) {
+      throw new BadRequestException(
+        'Segredo 2FA não encontrado. Gere um novo.',
+      );
+    }
+
+    const verified = this.verifyTotp(user.twoFactorSecret, token);
 
     if (!verified) {
       throw new BadRequestException('Token 2FA inválido');
     }
 
-    user.twoFactorEnabled = true;
+    // Os códigos em texto puro só são retornados uma vez.
     const backupCodes = this.generateBackupCodes();
-    user.twoFactorBackupCodes = backupCodes;
+
+    // Somente os hashes são armazenados no banco.
+    user.twoFactorBackupCodes =
+      await this.hashBackupCodes(backupCodes);
+
+    user.twoFactorEnabled = true;
+
     await this.userRepository.save(user);
 
     await this.auditLogService.log(
@@ -87,13 +117,20 @@ export class TwoFactorService {
     return {
       message: '2FA ativado com sucesso!',
       backupCodes,
-      warning: 'Guarde estes códigos de backup em um local seguro.',
+      warning:
+        'Guarde estes códigos em um local seguro. Eles não serão exibidos novamente.',
     };
   }
 
-  // ===== DESATIVAR 2FA =====
-  async disableTwoFactor(userId: string, token: string, req?: FastifyRequest) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+  async disableTwoFactor(
+    userId: string,
+    token: string,
+    req?: FastifyRequest,
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
     if (!user) {
       throw new BadRequestException('Usuário não encontrado');
     }
@@ -102,99 +139,181 @@ export class TwoFactorService {
       throw new BadRequestException('2FA não está ativado');
     }
 
-    const isValid = this.verifyToken(user, token);
-    if (!isValid) {
+    const verification = await this.verifyToken(user, token);
+
+    if (!verification.verified) {
       throw new BadRequestException('Token 2FA inválido');
     }
 
     user.twoFactorEnabled = false;
     user.twoFactorSecret = undefined;
     user.twoFactorBackupCodes = undefined;
+
     await this.userRepository.save(user);
 
     await this.auditLogService.log(
       userId,
       AuditAction.TWO_FACTOR_DISABLE,
-      {},
+      {
+        usedBackupCode: verification.isBackupCode,
+      },
       req,
       'Usuário desativou autenticação em 2 fatores',
     );
 
-    return { message: '2FA desativado com sucesso' };
+    return {
+      message: '2FA desativado com sucesso',
+    };
   }
 
-  // ===== VERIFICAR 2FA NO LOGIN (MÉTODO ADICIONADO) =====
   async verifyTwoFactorLogin(
     userId: string,
     token: string,
     req?: FastifyRequest,
-  ): Promise<{ verified: boolean; isBackupCode: boolean }> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+  ): Promise<{
+    verified: boolean;
+    isBackupCode: boolean;
+  }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
     if (!user) {
       throw new UnauthorizedException('Usuário não encontrado');
     }
 
     if (!user.twoFactorEnabled) {
-      return { verified: false, isBackupCode: false };
+      return {
+        verified: false,
+        isBackupCode: false,
+      };
     }
 
-    const isValid = this.verifyToken(user, token);
+    const result = await this.verifyToken(user, token);
 
     await this.auditLogService.log(
       userId,
       AuditAction.TWO_FACTOR_VERIFY,
-      { success: isValid },
+      {
+        success: result.verified,
+        usedBackupCode: result.isBackupCode,
+      },
       req,
-      isValid ? 'Verificação 2FA bem sucedida' : 'Tentativa de verificação 2FA falhou',
+      result.verified
+        ? 'Verificação 2FA bem sucedida'
+        : 'Tentativa de verificação 2FA falhou',
     );
 
-    return { verified: isValid, isBackupCode: false };
+    return result;
   }
 
-  // ===== VERIFICAR TOKEN (PRIVADO) =====
-  private verifyToken(user: User, token: string): boolean {
-    if (!user.twoFactorSecret) {
+
+  private verifyTotp(secret: string, token: string): boolean {
+    const normalizedToken = token.trim();
+
+    if (!/^\d{6}$/.test(normalizedToken)) {
       return false;
     }
 
-    // 1. Verificar TOTP
-    const totpVerified = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
+    return speakeasy.totp.verify({
+      secret,
       encoding: 'base32',
-      token,
+      token: normalizedToken,
       window: 1,
     });
+  }
 
-    if (totpVerified) {
-      return true;
+  private async verifyToken(
+    user: User,
+    token: string,
+  ): Promise<{
+    verified: boolean;
+    isBackupCode: boolean;
+  }> {
+    const normalizedToken = token.trim();
+
+    // Primeiro verifica um código TOTP normal.
+    if (
+      user.twoFactorSecret &&
+      this.verifyTotp(user.twoFactorSecret, normalizedToken)
+    ) {
+      return {
+        verified: true,
+        isBackupCode: false,
+      };
     }
 
-    // 2. Verificar código de backup
-    if (user.twoFactorBackupCodes && Array.isArray(user.twoFactorBackupCodes)) {
-      const codeIndex = user.twoFactorBackupCodes.indexOf(token);
-      if (codeIndex !== -1) {
-        user.twoFactorBackupCodes.splice(codeIndex, 1);
-        this.userRepository.save(user);
-        return true;
+    const backupCodes = user.twoFactorBackupCodes ?? [];
+
+    if (!Array.isArray(backupCodes)) {
+      return {
+        verified: false,
+        isBackupCode: false,
+      };
+    }
+
+    // Os valores no banco devem ser hashes bcrypt.
+    for (const [index, hashedCode] of backupCodes.entries()) {
+      const matches = await bcrypt.compare(
+        normalizedToken,
+        hashedCode,
+      );
+
+      if (!matches) {
+        continue;
       }
+
+      // Remove o código usado.
+      user.twoFactorBackupCodes = backupCodes.filter(
+        (_, currentIndex) => currentIndex !== index,
+      );
+
+      // Aguarda a persistência antes de liberar o login.
+      await this.userRepository.save(user);
+
+      return {
+        verified: true,
+        isBackupCode: true,
+      };
     }
 
-    return false;
+    return {
+      verified: false,
+      isBackupCode: false,
+    };
   }
 
-  // ===== GERAR CÓDIGOS DE BACKUP =====
+
   private generateBackupCodes(): string[] {
-    const codes: string[] = [];
-    for (let i = 0; i < 10; i++) {
-      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-      codes.push(code);
-    }
-    return codes;
+    return Array.from({ length: 10 }, () =>
+      randomBytes(5).toString('hex').toUpperCase(),
+    );
   }
 
-  // ===== REGENERAR BACKUP CODES =====
-  async regenerateBackupCodes(userId: string, token: string, req?: FastifyRequest) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+  private async hashBackupCodes(
+    backupCodes: string[],
+  ): Promise<string[]> {
+    const rounds = Number.parseInt(
+      process.env.BCRYPT_ROUNDS || '12',
+      10,
+    );
+
+    return Promise.all(
+      backupCodes.map((code) =>
+        bcrypt.hash(code, rounds),
+      ),
+    );
+  }
+
+  async regenerateBackupCodes(
+    userId: string,
+    token: string,
+    req?: FastifyRequest,
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
     if (!user) {
       throw new BadRequestException('Usuário não encontrado');
     }
@@ -203,19 +322,26 @@ export class TwoFactorService {
       throw new BadRequestException('2FA não está ativado');
     }
 
-    const isValid = this.verifyToken(user, token);
-    if (!isValid) {
+    const verification = await this.verifyToken(user, token);
+
+    if (!verification.verified) {
       throw new BadRequestException('Token 2FA inválido');
     }
 
     const backupCodes = this.generateBackupCodes();
-    user.twoFactorBackupCodes = backupCodes;
+
+    user.twoFactorBackupCodes =
+      await this.hashBackupCodes(backupCodes);
+
     await this.userRepository.save(user);
 
     await this.auditLogService.log(
       userId,
       AuditAction.TWO_FACTOR_ENABLE,
-      { action: 'regenerate_backup_codes' },
+      {
+        action: 'regenerate_backup_codes',
+        usedBackupCode: verification.isBackupCode,
+      },
       req,
       'Usuário regenerou códigos de backup 2FA',
     );
@@ -223,20 +349,25 @@ export class TwoFactorService {
     return {
       message: 'Códigos de backup regenerados com sucesso!',
       backupCodes,
-      warning: 'Guarde estes códigos em um local seguro. Os anteriores foram invalidados.',
+      warning:
+        'Guarde estes códigos em um local seguro. Os anteriores foram invalidados.',
     };
   }
 
-  // ===== VERIFICAR STATUS DO 2FA =====
-  async getTwoFactorStatus(userId: string): Promise<{ enabled: boolean; hasSecret: boolean }> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+  async getTwoFactorStatus(
+    userId: string,
+  ): Promise<{ enabled: boolean; hasSecret: boolean }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
     if (!user) {
       throw new BadRequestException('Usuário não encontrado');
     }
 
     return {
       enabled: user.twoFactorEnabled,
-      hasSecret: !!user.twoFactorSecret,
+      hasSecret: Boolean(user.twoFactorSecret),
     };
   }
 }
