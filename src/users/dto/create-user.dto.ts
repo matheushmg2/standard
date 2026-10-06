@@ -12,6 +12,8 @@ import {
   IsUrl,
 } from 'class-validator';
 
+export const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 export class CreateUserDto {
   @ApiProperty({ example: 'usuario@email.com', description: 'Email do usuário' })
   @IsEmail({}, { message: 'Email inválido' })
@@ -28,7 +30,7 @@ export class CreateUserDto {
   @MinLength(8)
   @MaxLength(50)
   @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    PASSWORD_REGEX,
     { message: 'Senha deve conter maiúscula, minúscula, número e caractere especial' }
   )
   password: string;
@@ -80,41 +82,49 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: 'Rua das Flores, 123', description: 'Endereço completo' })
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   address?: string;
 
   @ApiPropertyOptional({ example: '01001-000', description: 'CEP' })
   @IsOptional()
   @IsString()
+  @MaxLength(10) 
   zipCode?: string;
 
   @ApiPropertyOptional({ example: 'Rua das Flores', description: 'Logradouro' })
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   street?: string;
 
   @ApiPropertyOptional({ example: '123', description: 'Número' })
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   number?: string;
 
   @ApiPropertyOptional({ example: 'Apto 45', description: 'Complemento' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   complement?: string;
 
   @ApiPropertyOptional({ example: 'Centro', description: 'Bairro' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   neighborhood?: string;
 
   @ApiPropertyOptional({ example: 'São Paulo', description: 'Cidade' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   city?: string;
 
   @ApiPropertyOptional({ example: 'SP', description: 'Estado' })
   @IsOptional()
   @IsString()
+  @MaxLength(2)
   state?: string;
 
   @ApiPropertyOptional({ example: 'Brasil', description: 'País' })
@@ -126,11 +136,13 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: 'pt-BR', description: 'Idioma' })
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   language?: string;
 
   @ApiPropertyOptional({ example: 'America/Sao_Paulo', description: 'Fuso horário' })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   timezone?: string;
 
   // Campos internos (não expostos na API)

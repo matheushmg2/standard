@@ -160,10 +160,12 @@ export class User {
   @BeforeInsert()
   // @BeforeUpdate()
   async hashPassword() {
-    if (this.password) {
-      const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
-      this.password = await bcrypt.hash(this.password, rounds);
+    if (!this.password) {
+      return;
     }
+
+    const rounds = Number.parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+    this.password = await bcrypt.hash(this.password, rounds);
   }
 
   async comparePassword(plainPassword: string): Promise<boolean> {
@@ -176,8 +178,7 @@ export class User {
 }
 
   isLocked(): boolean {
-    if (!this.lockUntil) return false;
-    return new Date() < this.lockUntil;
+    return Boolean(this.lockUntil && new Date() < this.lockUntil);
   }
 
   incrementLoginAttempts(): void {

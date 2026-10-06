@@ -6,6 +6,7 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GeocodingService } from '../geocoding/geocoding.service';
+import { UserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -23,12 +24,15 @@ export class UsersService {
     const existingUser = await this.userRepository.findOne({
       where: { email },
     });
+
     if (existingUser) {
       throw new ConflictException('Email já cadastrado');
     }
 
     // 2. Geocodificar endereço (se fornecido)
-    let locationData = null;
+    let locationData: Awaited<
+      ReturnType<GeocodingService['geocodeAddress']>
+    > = null;
     if (address) {
       locationData = await this.geocodingService.geocodeAddress(address);
     }
@@ -54,67 +58,107 @@ export class UsersService {
   }
 
   // ===== BUSCAR TODOS =====
-  async findAll() {
-    return this.userRepository.find();
+  async findAll(): Promise<User[]> {
+    return this.userRepository.find({
+      order: { createdAt: 'DESC' },
+    });
   }
 
   // ===== BUSCAR POR ID =====
-  async findOne(id: string) {
+  async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
+
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
+
     return user;
   }
 
   // ===== BUSCAR POR EMAIL =====
-  async findByEmail(email: string) {
+  async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { email } });
   }
 
   // ===== ATUALIZAR =====
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id); // Reutiliza a validação
 
-    // Se o endereço foi atualizado, geocodificar novamente
-    if (updateUserDto.address) {
-      const locationData = await this.geocodingService.geocodeAddress(updateUserDto.address);
+    const { address, ...profileData } = updateUserDto;
+
+    if (address) {
+      const locationData = await this.geocodingService.geocodeAddress(address);
+
       if (locationData) {
-        user.city = locationData.city;
-        user.state = locationData.state;
-        user.country = locationData.country;
-        user.zipCode = locationData.postalCode;
-        user.street = locationData.street;
-        user.number = locationData.houseNumber;
-        user.neighborhood = locationData.neighborhood;
+        Object.assign(user, {
+          city: locationData.city,
+          state: locationData.state,
+          country: locationData.country,
+          zipCode: locationData.postalCode,
+          street: locationData.street,
+          number: locationData.houseNumber,
+          neighborhood: locationData.neighborhood,
+        });
       }
     }
 
-    // Atualizar os dados
-    Object.assign(user, updateUserDto);
+    // Allowlist explícita: não permite password, role, status ou tokens.
+    Object.assign(user, profileData);
+
     return this.userRepository.save(user);
   }
 
   // ===== REMOVER =====
-  async remove(id: string) {
+  async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
     return this.userRepository.remove(user);
   }
 
   // ===== VERIFICAR SE USUÁRIO EXISTE =====
   async exists(id: string): Promise<boolean> {
-    const count = await this.userRepository.count({ where: { id } });
-    return count > 0;
+    return (await this.userRepository.count({ where: { id } })) > 0;
   }
 
   // ===== BUSCAR POR CPF =====
-  async findByCpf(cpf: string) {
+  async findByCpf(cpf: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { cpf } });
   }
 
   // ===== BUSCAR POR CNPJ =====
-  async findByCnpj(cnpj: string) {
+  async findByCnpj(cnpj: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { cnpj } });
+  }
+
+  toResponse(user: User): UserResponseDto {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      isEmailVerified: user.isEmailVerified,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      phone: user.phone,
+      whatsapp: user.whatsapp,
+      birthDate: user.birthDate,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      zipCode: user.zipCode,
+      street: user.street,
+      number: user.number,
+      complement: user.complement,
+      neighborhood: user.neighborhood,
+      city: user.city,
+      state: user.state,
+      country: user.country,
+      language: user.language,
+      timezone: user.timezone,
+    };
+  }
+
+  toResponseList(users: User[]): UserResponseDto[] {
+    return users.map((user) => this.toResponse(user));
   }
 
 }

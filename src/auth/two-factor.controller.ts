@@ -1,14 +1,16 @@
 // src/auth/two-factor.controller.ts
 import {
-  Controller,
-  Post,
-  Get,
   Body,
-  UseGuards,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Post,
   Request,
   Res,
-  Ip,
-  Headers,
+  UseGuards,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TwoFactorService } from './two-factor.service';
@@ -20,6 +22,8 @@ import {
 } from './dto/two-factor.dto';
 import { Public } from './decorators/public.decorator';
 import { ApiBearerAuth, ApiBody, ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RateLimitGuard } from '../common/guards/rate-limit.guard';
+
 
 @ApiTags('2FA')
 @Controller('2fa')
@@ -55,6 +59,7 @@ export class TwoFactorController {
   // ===== ATIVAR 2FA =====
   @UseGuards(JwtAuthGuard)
   @Post('enable')
+  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Ativar 2FA' })
@@ -134,6 +139,8 @@ export class TwoFactorController {
   // ===== LOGIN COM 2FA =====
   @Public()
   @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
   @ApiOperation({ summary: 'Login com 2FA' })
   @ApiResponse({ status: 200, description: 'Login com 2FA bem-sucedido' })
   @ApiResponse({ status: 401, description: 'Credenciais ou token 2FA inválidos' })
@@ -152,8 +159,12 @@ export class TwoFactorController {
       req,
     );
 
-    // Configurar cookies
     const isProduction = process.env.NODE_ENV === 'production';
+
+    const {
+      refreshToken,
+      ...responseBody
+    } = result;
 
     response.setCookie('access_token', result.accessToken, {
       httpOnly: true,
@@ -163,14 +174,14 @@ export class TwoFactorController {
       path: '/',
     });
 
-    response.setCookie('refresh_token', result.refreshToken, {
+    response.setCookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60,
-      path: '/auth/refresh',
+      path: '/api/auth',
     });
 
-    return result;
+    return responseBody;
   }
 }
