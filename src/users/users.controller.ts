@@ -1,11 +1,26 @@
 // src/users/users.controller.ts
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, ForbiddenException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCookieAuth, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Request,
+  ForbiddenException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiCookieAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from './entities/user.entity';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -19,7 +34,6 @@ type AuthenticatedRequest = {
 
 @ApiTags('Users')
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 @ApiCookieAuth()
 export class UsersController {
@@ -32,9 +46,7 @@ export class UsersController {
   @ApiResponse({ status: 409, description: 'Email já cadastrado' })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
   @ApiResponse({ status: 403, description: 'Permissão negada' })
-  async create(
-    @Body() createUserDto: CreateUserDto,
-  ): Promise<UserResponseDto> {
+  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     const user = await this.usersService.create(createUserDto);
     return this.usersService.toResponse(user);
   }
@@ -42,7 +54,10 @@ export class UsersController {
   @Get()
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Listar todos os usuários (Apenas Admin)' })
-  @ApiResponse({ status: 200, description: 'Lista de usuários retornada com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuários retornada com sucesso',
+  })
   @ApiResponse({ status: 403, description: 'Permissão negada' })
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersService.findAll();
@@ -70,8 +85,8 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Usuário atualizado com sucesso' })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
   @ApiResponse({ status: 403, description: 'Permissão negada' })
-  @ApiResponse({ status: 404, description: 'Usuário não encontrado' })  
-   async update(
+  @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
+  async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @Request() req: AuthenticatedRequest,

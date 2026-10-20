@@ -22,7 +22,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // ===== TRATAR ERROS DO TYPEORM =====
     if (exception instanceof QueryFailedError) {
       const driverError = (exception as any).driverError;
-      
+
       if (driverError?.code === '22001') {
         // value too long
         status = HttpStatus.BAD_REQUEST;
@@ -40,7 +40,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
       status = exception.getStatus();
-      
+
       if (typeof response === 'object' && response !== null) {
         message = (response as any).message || message;
         errors = (response as any).errors || null;

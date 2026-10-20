@@ -32,6 +32,7 @@ import { SessionsService } from '../sessions/sessions.service';
 import { PasswordHistoryService } from '../users/password-history.service';
 import { UsersService } from '../users/users.service';
 import { LoggerService } from '../logger/logger.service';
+import { TokenRevocationService } from './token-revocation.service';
 
 @Injectable()
 export class AuthService {
@@ -48,17 +49,23 @@ export class AuthService {
     private sessionsService: SessionsService,
     private passwordHistoryService: PasswordHistoryService,
     private logger: LoggerService,
-  ) { }
+    private readonly tokenRevocationService: TokenRevocationService,
+  ) {}
 
   // ===== REGISTRO =====
-  async register(registerDto: RegisterDto, ipAddress: string, req?: FastifyRequest) {
+  async register(
+    registerDto: RegisterDto,
+    ipAddress: string,
+    req?: FastifyRequest,
+  ) {
     const { email, password, name, ...optionalData } = registerDto;
 
     // ===== 1. VALIDAR SENHA =====
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
       throw new BadRequestException(
-        'Senha deve conter: maiúscula, minúscula, número e caractere especial (@$!%*?&)'
+        'Senha deve conter: maiúscula, minúscula, número e caractere especial (@$!%*?&)',
       );
     }
 
@@ -79,7 +86,9 @@ export class AuthService {
     }
 
     if (optionalData.cnpj) {
-      const existingCnpj = await this.usersService.findByCnpj(optionalData.cnpj);
+      const existingCnpj = await this.usersService.findByCnpj(
+        optionalData.cnpj,
+      );
       if (existingCnpj) {
         throw new ConflictException('CNPJ já cadastrado');
       }
@@ -120,7 +129,7 @@ export class AuthService {
           {
             email: user.email,
             userId: user.id,
-          }
+          },
         );
       } catch (error: any) {
         // 🔥 SUBSTITUIR console.error
@@ -131,7 +140,7 @@ export class AuthService {
             email: user.email,
             userId: user.id,
             error: error.message,
-          }
+          },
         );
       }
     }
@@ -162,8 +171,8 @@ export class AuthService {
     const user = await this.userRepository.findOne({
       where: {
         emailVerificationToken: token,
-        isEmailVerified: false
-      }
+        isEmailVerified: false,
+      },
     });
 
     if (!user) {
@@ -171,13 +180,15 @@ export class AuthService {
     }
 
     // Corrigido: verificar se a data existe antes de comparar
-    if (user.emailVerificationTokenExpires &&
-      isAfter(new Date(), user.emailVerificationTokenExpires)) {
+    if (
+      user.emailVerificationTokenExpires &&
+      isAfter(new Date(), user.emailVerificationTokenExpires)
+    ) {
       throw new BadRequestException('Token expirado. Solicite um novo.');
     }
 
     user.isEmailVerified = true;
-    user.emailVerificationToken = undefined;  // ← Usar undefined em vez de null
+    user.emailVerificationToken = undefined; // ← Usar undefined em vez de null
     user.emailVerificationTokenExpires = undefined;
     await this.userRepository.save(user);
 
@@ -204,14 +215,19 @@ export class AuthService {
     await this.emailService.sendVerificationEmail(
       user.email,
       user.name,
-      verificationToken
+      verificationToken,
     );
 
     return { message: 'Novo email de verificação enviado' };
   }
 
   // ===== LOGIN =====
-  async login(loginDto: LoginDto, ipAddress: string, userAgent: string, req?: FastifyRequest) {
+  async login(
+    loginDto: LoginDto,
+    ipAddress: string,
+    userAgent: string,
+    req?: FastifyRequest,
+  ) {
     const { email, password } = loginDto;
 
     const user = await this.usersService.findByEmail(email);
@@ -222,12 +238,14 @@ export class AuthService {
 
     if (user.isLocked()) {
       throw new UnauthorizedException(
-        'Conta bloqueada por muitas tentativas. Tente novamente em 30 minutos.'
+        'Conta bloqueada por muitas tentativas. Tente novamente em 30 minutos.',
       );
     }
 
     if (!user.isEmailVerified) {
-      throw new UnauthorizedException('Por favor, verifique seu email primeiro');
+      throw new UnauthorizedException(
+        'Por favor, verifique seu email primeiro',
+      );
     }
 
     if (!user.isActive) {
@@ -241,7 +259,7 @@ export class AuthService {
 
       const attemptsLeft = 5 - user.loginAttempts;
       throw new UnauthorizedException(
-        `Credenciais inválidas. Tentativas restantes: ${Math.max(0, attemptsLeft)}`
+        `Credenciais inválidas. Tentativas restantes: ${Math.max(0, attemptsLeft)}`,
       );
     }
 
@@ -259,7 +277,7 @@ export class AuthService {
           email: user.email,
           ip: ipAddress,
           userAgent,
-          requiresTwoFactor: true
+          requiresTwoFactor: true,
         },
         req,
         `Login requer verificação 2FA`,
@@ -282,16 +300,6 @@ export class AuthService {
       req,
     );
 
-    // Salvar refresh token (mantido para compatibilidade)
-    user.refreshToken = tokens.refreshToken;
-    await this.userRepository.save(user);
-
-    await this.redisService.set(
-      `refresh_token:${user.id}`,
-      tokens.refreshToken,
-      7 * 24 * 60 * 60
-    );
-
     // Verificar se é novo dispositivo
     const isNewDevice = await this.isNewDevice(user.id, ipAddress);
 
@@ -312,7 +320,7 @@ export class AuthService {
             userId: user.id,
             ip: ipAddress,
             userAgent,
-          }
+          },
         );
       } catch (error: any) {
         // 🔥 SUBSTITUIR console.error
@@ -323,7 +331,7 @@ export class AuthService {
             email: user.email,
             userId: user.id,
             error: error.message,
-          }
+          },
         );
       }
     }
@@ -367,65 +375,85 @@ export class AuthService {
     }
 
     // Verificar se existe uma sessão com o mesmo IP (ignorando User-Agent)
-    const existingSession = lastSession.find(s => s.ipAddress === ip);
+    const existingSession = lastSession.find((s) => s.ipAddress === ip);
 
     return !existingSession;
   }
 
-
   // ===== REFRESH TOKEN =====
-  async refreshTokens(refreshTokenDto: RefreshTokenDto) {
+  async refreshTokens(refreshTokenDto: RefreshTokenDto, req?: FastifyRequest) {
     const { refreshToken } = refreshTokenDto;
 
-    const isRevoked = await this.redisService.get(`revoked:${refreshToken}`);
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token não informado');
+    }
+
+    const isRevoked =
+      await this.tokenRevocationService.isRefreshTokenRevoked(refreshToken);
+
     if (isRevoked) {
       throw new UnauthorizedException('Refresh token revogado');
     }
 
     try {
+      // 1. Validar a assinatura e a expiração do JWT.
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get('jwt.refreshSecret'),
       });
 
+      // 2. Validar o refresh token na tabela sessions.
+      const session = await this.sessionsService.validateSession(
+        refreshToken,
+        payload.sub,
+      );
+
+      if (!session || session.userId !== payload.sub) {
+        throw new UnauthorizedException('Refresh token inválido ou expirado');
+      }
+
+      // 4. Buscar o usuário.
       const user = await this.userRepository.findOne({
-        where: { id: payload.sub }
+        where: { id: payload.sub },
       });
 
       if (!user) {
         throw new UnauthorizedException('Usuário não encontrado');
       }
 
-      if (user.refreshToken !== refreshToken) {
-        throw new UnauthorizedException('Refresh token inválido');
+      if (!user.isActive) {
+        throw new UnauthorizedException('Conta desativada');
       }
 
+      // 5. Criar um novo par de tokens.
       const newTokens = await this.generateTokens(user);
 
-      const oldRefreshToken = user.refreshToken;
-      user.refreshToken = newTokens.refreshToken;
-      await this.userRepository.save(user);
+      // 6. Revogar a sessão/token anterior.
+      await this.sessionsService.revokeSession(session.id, user.id);
 
-      await this.redisService.set(
-        `revoked:${oldRefreshToken}`,
-        'true',
-        7 * 24 * 60 * 60
-      );
-
-      await this.redisService.set(
-        `refresh_token:${user.id}`,
+      // 7. Criar uma nova sessão para o novo refresh token.
+      const newSession = await this.sessionsService.createSession(
+        user,
         newTokens.refreshToken,
-        7 * 24 * 60 * 60
+        req,
       );
+
+      // 8. Manter a revogação no Redis como proteção
+      // adicional durante a fase de transição.
+      await this.tokenRevocationService.revokeRefreshToken(refreshToken);
 
       await this.logAuthEvent(user.id, 'REFRESH_TOKEN');
 
       return {
         accessToken: newTokens.accessToken,
         refreshToken: newTokens.refreshToken,
+        sessionId: newSession.id,
         expiresIn: this.configService.get('jwt.accessExpiresIn'),
       };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
 
-    } catch {
       throw new UnauthorizedException('Refresh token inválido ou expirado');
     }
   }
@@ -438,33 +466,17 @@ export class AuthService {
     req?: FastifyRequest,
   ): Promise<{ message: string }> {
     if (refreshToken) {
-      const session =
-        await this.sessionsService.validateSession(refreshToken);
+      const session = await this.sessionsService.validateSession(refreshToken);
 
       if (session && session.userId === userId) {
-        await this.sessionsService.revokeSession(
-          session.id,
-          userId,
-        );
+        await this.sessionsService.revokeSession(session.id, userId);
       }
 
-      await this.redisService.set(
-        `revoked:${refreshToken}`,
-        'true',
-        7 * 24 * 60 * 60,
-      );
+      await this.tokenRevocationService.revokeRefreshToken(refreshToken);
     }
 
-    // Compatibilidade com o campo legado da entidade User.
-    await this.userRepository.update(userId, {
-      refreshToken: undefined,
-    });
-
-    await this.redisService.del(
-      `refresh_token:${userId}`,
-    );
-
     if (accessToken) {
+      await this.tokenRevocationService.revokeAccessToken(accessToken);
       try {
         const decoded = this.jwtService.decode(accessToken) as {
           exp?: number;
@@ -475,11 +487,7 @@ export class AuthService {
         const ttl = expirationTime - currentTime;
 
         if (ttl > 0) {
-          await this.redisService.set(
-            `blacklist:${accessToken}`,
-            'true',
-            ttl,
-          );
+          await this.redisService.set(`blacklist:${accessToken}`, 'true', ttl);
         }
       } catch {
         // O logout não deve falhar apenas porque o token
@@ -500,10 +508,12 @@ export class AuthService {
     };
   }
 
-
   // ===== RECUPERAÇÃO DE SENHA =====
   // src/auth/auth.service.ts
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto, req?: FastifyRequest) {
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+    req?: FastifyRequest,
+  ) {
     const { email } = forgotPasswordDto;
 
     // ===== 1. BUSCAR USUÁRIO =====
@@ -513,7 +523,7 @@ export class AuthService {
     if (!user) {
       // Sempre retornar a mesma mensagem para não expor se o email existe
       return {
-        message: 'Se o email existir, enviaremos um link de recuperação'
+        message: 'Se o email existir, enviaremos um link de recuperação',
       };
     }
 
@@ -528,7 +538,7 @@ export class AuthService {
       await this.emailService.sendPasswordResetEmail(
         user.email,
         user.name,
-        resetToken
+        resetToken,
       );
       // 🔥 SUBSTITUIR console.log
       this.logger.infoWithMetadata(
@@ -537,7 +547,7 @@ export class AuthService {
         {
           email: user.email,
           userId: user.id,
-        }
+        },
       );
     } catch (error: any) {
       // 🔥 SUBSTITUIR console.error
@@ -548,7 +558,7 @@ export class AuthService {
           email: user.email,
           userId: user.id,
           error: error.message,
-        }
+        },
       );
     }
 
@@ -566,7 +576,7 @@ export class AuthService {
 
     // ===== 6. RETORNAR MENSAGEM (MESMA PARA SEGURANÇA) =====
     return {
-      message: 'Se o email existir, enviaremos um link de recuperação'
+      message: 'Se o email existir, enviaremos um link de recuperação',
     };
   }
 
@@ -577,15 +587,17 @@ export class AuthService {
     const user = await this.userRepository.findOne({
       where: {
         passwordResetToken: token,
-      }
+      },
     });
 
     if (!user) {
       throw new BadRequestException('Token inválido');
     }
 
-    if (user.passwordResetTokenExpires &&
-      isAfter(new Date(), user.passwordResetTokenExpires)) {
+    if (
+      user.passwordResetTokenExpires &&
+      isAfter(new Date(), user.passwordResetTokenExpires)
+    ) {
       throw new BadRequestException('Token expirado');
     }
 
@@ -612,8 +624,6 @@ export class AuthService {
     await this.passwordHistoryService.addToHistory(user, hashedPassword);
 
     // Revogar tokens e sessões
-    await this.redisService.del(`refresh_token:${user.id}`);
-    await this.userRepository.update(user.id, { refreshToken: undefined });
     await this.sessionsService.revokeAllSessions(user.id);
 
     await this.logAuthEvent(user.id, 'RESET_PASSWORD');
@@ -677,7 +687,17 @@ export class AuthService {
     // 🔥 REVOGAR TODAS AS SESSÕES (segurança)
     await this.sessionsService.revokeAllSessions(userId);
 
-    return { message: 'Senha alterada com sucesso' };
+    const accessToken =
+      req?.cookies?.access_token ||
+      req?.headers.authorization?.replace(/^Bearer\s+/i, '');
+
+    if (accessToken) {
+      await this.tokenRevocationService.revokeAccessToken(accessToken);
+    }
+
+    return {
+      message: 'Senha alterada com sucesso',
+    };
   }
 
   // ===== TOKENS =====
@@ -685,7 +705,7 @@ export class AuthService {
     const payload = {
       email: user.email,
       sub: user.id,
-      role: user.role
+      role: user.role,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -715,7 +735,7 @@ export class AuthService {
       });
 
       const user = await this.userRepository.findOne({
-        where: { id: payload.sub }
+        where: { id: payload.sub },
       });
 
       if (!user || !user.isActive) {
@@ -729,12 +749,22 @@ export class AuthService {
   }
 
   // ===== LOGGING =====
-  private async logAuthEvent(userId: string, event: string, ip?: string, userAgent?: string) {
-    console.log(`[AUTH] ${event} - User: ${userId} - IP: ${ip || 'N/A'} - UA: ${userAgent || 'N/A'}`);
+  private async logAuthEvent(
+    userId: string,
+    event: string,
+    ip?: string,
+    userAgent?: string,
+  ) {
+    console.log(
+      `[AUTH] ${event} - User: ${userId} - IP: ${ip || 'N/A'} - UA: ${userAgent || 'N/A'}`,
+    );
   }
 
   // ===== CONTROLE DE PERMISSÕES =====
-  async hasPermission(userId: string, requiredRole: UserRole): Promise<boolean> {
+  async hasPermission(
+    userId: string,
+    requiredRole: UserRole,
+  ): Promise<boolean> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) return false;
 
@@ -750,8 +780,6 @@ export class AuthService {
 
   // ===== REVOGAÇÃO EM MASSA =====
   async revokeAllUserTokens(userId: string) {
-    await this.redisService.del(`refresh_token:${userId}`);
-    await this.userRepository.update(userId, { refreshToken: undefined });
     await this.sessionsService.revokeAllSessions(userId);
 
     await this.logAuthEvent(userId, 'REVOKE_ALL_TOKENS');
@@ -795,9 +823,7 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException(
-        'Conta desativada. Contate o suporte.',
-      );
+      throw new UnauthorizedException('Conta desativada. Contate o suporte.');
     }
 
     const isPasswordValid = await user.comparePassword(password);
@@ -807,9 +833,7 @@ export class AuthService {
 
       await this.userRepository.save(user);
 
-      throw new UnauthorizedException(
-        'Credenciais inválidas',
-      );
+      throw new UnauthorizedException('Credenciais inválidas');
     }
 
     const { verified, isBackupCode } =
@@ -820,9 +844,7 @@ export class AuthService {
       );
 
     if (!verified) {
-      throw new UnauthorizedException(
-        'Token 2FA inválido',
-      );
+      throw new UnauthorizedException('Token 2FA inválido');
     }
 
     const tokens = await this.generateTokens(user);
@@ -832,13 +854,6 @@ export class AuthService {
       tokens.refreshToken,
       req,
     );
-
-    // Atualiza somente o refreshToken.
-    // Não usar save(user), pois o objeto user pode conter
-    // uma lista antiga de códigos de backup.
-    await this.userRepository.update(user.id, {
-      refreshToken: tokens.refreshToken,
-    });
 
     await this.auditLogService.log(
       user.id,
@@ -866,10 +881,7 @@ export class AuthService {
       refreshToken: tokens.refreshToken,
 
       sessionId: session.id,
-      expiresIn: this.configService.get(
-        'jwt.accessExpiresIn',
-      ),
+      expiresIn: this.configService.get('jwt.accessExpiresIn'),
     };
   }
-
 }

@@ -29,7 +29,10 @@ export class PasswordHistoryService {
   }
 
   // ===== VERIFICAR SE SENHA JÁ FOI USADA =====
-  async isPasswordReused(userId: string, newPassword: string): Promise<boolean> {
+  async isPasswordReused(
+    userId: string,
+    newPassword: string,
+  ): Promise<boolean> {
     const history = await this.passwordHistoryRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },

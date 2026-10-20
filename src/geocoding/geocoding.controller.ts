@@ -2,11 +2,11 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { GeocodingService } from './geocoding.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 @ApiTags('Geocoding')
 @Controller('geocoding')
-@UseGuards(JwtAuthGuard)
+@UseGuards(RolesGuard)
 export class GeocodingController {
   constructor(private geocodingService: GeocodingService) {}
 
@@ -22,11 +22,11 @@ export class GeocodingController {
   @ApiOperation({ summary: 'Geocodificação reversa' })
   @ApiQuery({ name: 'lat', description: 'Latitude' })
   @ApiQuery({ name: 'lng', description: 'Longitude' })
-  async reverseGeocode(
-    @Query('lat') lat: string,
-    @Query('lng') lng: string,
-  ) {
-    return this.geocodingService.reverseGeocode(parseFloat(lat), parseFloat(lng));
+  async reverseGeocode(@Query('lat') lat: string, @Query('lng') lng: string) {
+    return this.geocodingService.reverseGeocode(
+      parseFloat(lat),
+      parseFloat(lng),
+    );
   }
 
   @Get('cities')

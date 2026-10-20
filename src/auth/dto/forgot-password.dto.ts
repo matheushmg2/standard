@@ -4,4 +4,3 @@ export class ForgotPasswordDto {
   @IsEmail({}, { message: 'Email inválido' })
   email: string;
 }
-

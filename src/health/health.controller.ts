@@ -20,7 +20,9 @@ export class HealthController {
 
   @Public()
   @Get('readiness')
-  @ApiOperation({ summary: 'Verificar se a aplicação está pronta para receber tráfego' })
+  @ApiOperation({
+    summary: 'Verificar se a aplicação está pronta para receber tráfego',
+  })
   @ApiResponse({ status: 200, description: 'Aplicação pronta' })
   @ApiResponse({ status: 503, description: 'Aplicação não pronta' })
   async readiness() {

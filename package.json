@@ -38,8 +38,14 @@
     "docker:restart": "docker-compose restart",
     "docker:reset": "./shell/reset-db.sh",
     "docker:start-dev": "./shell/start-dev.sh",
-    "_TESTE": "// ===== SCRIPTS DE TESTE =====",
-    "lint": "oxlint src/ test/",
+    "_CLEANING": "// ===== SCRIPTS DE TESTE =====",
+    "lint:check": "eslint src/ --max-warnings=9999 || (echo '⚠️  Lint encontrou problemas' && exit 1)",
+    "lint:ok": "eslint src/ && echo '✅ Lint passou sem problemas!'",
+    "lint:report": "eslint src/; EXIT=$?; if [ $EXIT -eq 0 ]; then echo '✅ Sucesso: nenhum problema de lint'; else echo \"⚠️  ESLint saiu com código $EXIT (pode haver warnings/errors)\"; fi; exit $EXIT",
+    "lint:check-test": "eslint test/ --max-warnings=9999 || (echo '⚠️  Lint encontrou problemas' && exit 1)",
+    "lint:ok-test": "eslint test/ && echo '✅ Lint passou sem problemas!'",
+    "lint:report-test": "eslint test/; EXIT=$?; if [ $EXIT -eq 0 ]; then echo '✅ Sucesso: nenhum problema de lint'; else echo \"⚠️  ESLint saiu com código $EXIT (pode haver warnings/errors)\"; fi; exit $EXIT",
+    "_TEST": "// ===== SCRIPTS DE TESTE =====",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -92,6 +98,7 @@
     "uuid": "^14.0.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@fastify/cookie": "^11.1.2",
     "@fastify/helmet": "^13.1.1",
     "@nestjs/cli": "^12.0.0",
@@ -105,6 +112,9 @@
     "@types/qrcode": "^1.5.6",
     "@types/speakeasy": "^2.0.10",
     "@types/supertest": "^7.0.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^17.13.0",
     "jest": "^30.0.0",
     "oxlint": "^1.58.0",
     "prettier": "^3.4.2",
@@ -114,6 +124,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.72.0"
   }
 }

@@ -9,27 +9,34 @@ import {
   HttpStatus,
   Ip,
   Post,
-  Query,
+  Patch,
   Request,
   Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCookieAuth, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiCookieAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService) {}
 
   @Public()
   @Post('register')
@@ -61,12 +68,7 @@ export class AuthController {
     @Request() req: FastifyRequest,
     @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    const result = await this.authService.login(
-      loginDto,
-      ip,
-      userAgent,
-      req,
-    );
+    const result = await this.authService.login(loginDto, ip, userAgent, req);
 
     if (result.requiresTwoFactor) {
       return result;
@@ -74,10 +76,7 @@ export class AuthController {
 
     const isProduction = process.env.NODE_ENV === 'production';
 
-    const {
-      refreshToken,
-      ...responseBody
-    } = result;
+    const { refreshToken, ...responseBody } = result;
 
     if (result.accessToken && refreshToken) {
       response.setCookie('access_token', result.accessToken, {
@@ -100,7 +99,6 @@ export class AuthController {
     return responseBody;
   }
 
-
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -113,32 +111,20 @@ export class AuthController {
   @ApiBody({ type: RefreshTokenDto })
   async refresh(
     @Body() body: Partial<RefreshTokenDto>,
-    @Request()
-    req: FastifyRequest & {
-      body?: Partial<RefreshTokenDto>;
-    },
+    @Request() req: FastifyRequest,
     @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    const refreshToken =
-      req.cookies?.refresh_token ||
-      body?.refreshToken;
+    const refreshToken = req.cookies?.refresh_token || body?.refreshToken;
 
     if (!refreshToken) {
-      throw new UnauthorizedException(
-        'Refresh token não informado',
-      );
+      throw new UnauthorizedException('Refresh token não informado');
     }
 
+    const result = await this.authService.refreshTokens({ refreshToken }, req);
+
+    const { refreshToken: newRefreshToken, ...responseBody } = result;
+
     const isProduction = process.env.NODE_ENV === 'production';
-
-    const result = await this.authService.refreshTokens({
-      refreshToken,
-    });
-
-    const {
-      refreshToken: newRefreshToken,
-      ...responseBody
-    } = result;
 
     response.setCookie('access_token', result.accessToken, {
       httpOnly: true,
@@ -159,8 +145,39 @@ export class AuthController {
     return responseBody;
   }
 
+  @Patch('change-password')
+  @ApiBearerAuth()
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Alterar senha do usuário autenticado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Senha alterada com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou senha reutilizada',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Não autenticado ou senha atual incorreta',
+  })
+  async changePassword(
+    @Request()
+    req: FastifyRequest & {
+      user: {
+        userId: string;
+      };
+    },
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(
+      req.user.userId,
+      changePasswordDto.oldPassword,
+      changePasswordDto.newPassword,
+      req,
+    );
+  }
 
-  @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
@@ -175,7 +192,8 @@ export class AuthController {
     description: 'Não autenticado',
   })
   async logout(
-    @Request() req: FastifyRequest & {
+    @Request()
+    req: FastifyRequest & {
       user: {
         userId: string;
       };
@@ -188,12 +206,9 @@ export class AuthController {
     const authorizationHeader = req.headers.authorization;
 
     const accessToken =
-      req.cookies?.access_token ||
-      authorizationHeader?.split(' ')[1];
+      req.cookies?.access_token || authorizationHeader?.split(' ')[1];
 
-    const refreshToken =
-      req.cookies?.refresh_token ||
-      req.body?.refreshToken;
+    const refreshToken = req.cookies?.refresh_token || req.body?.refreshToken;
 
     await this.authService.logout(
       req.user.userId,
@@ -215,11 +230,13 @@ export class AuthController {
     };
   }
 
-
   @Public()
   @Post('forgot-password')
   @ApiOperation({ summary: 'Solicitar recuperação de senha' })
-  @ApiResponse({ status: 200, description: 'Email de recuperação enviado (se existir)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email de recuperação enviado (se existir)',
+  })
   @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(
     @Body() forgotPasswordDto: ForgotPasswordDto,
@@ -238,7 +255,6 @@ export class AuthController {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('me')
   @ApiBearerAuth()
   @ApiCookieAuth()
@@ -271,11 +287,11 @@ export class AuthController {
         email: {
           type: 'string',
           example: 'usuario@email.com',
-          description: 'Email do usuário que deseja reenviar a verificação'
-        }
+          description: 'Email do usuário que deseja reenviar a verificação',
+        },
       },
-      required: ['email']
-    }
+      required: ['email'],
+    },
   })
   async resendVerification(@Body('email') email: string) {
     return this.authService.resendVerification(email);

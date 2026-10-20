@@ -1,4 +1,3 @@
-// src/auth/strategies/jwt.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -6,31 +5,29 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private configService: ConfigService) {
-    const secret = configService.get<string>('JWT_ACCESS_SECRET');
-    
+  constructor(private readonly configService: ConfigService) {
+    const secret = configService.get<string>('jwt.accessSecret');
+
     if (!secret) {
       throw new Error(
-        'JWT_ACCESS_SECRET não está definido. Verifique seu arquivo .env'
+        'JWT access secret não está definido. ' +
+          'Verifique sua configuração de ambiente.',
       );
     }
 
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request) => {
-          // Verificar em cookies
-          const tokenFromCookie = request?.cookies?.access_token;
-          if (tokenFromCookie) {
-            return tokenFromCookie;
+          const cookieToken = request?.cookies?.access_token;
+
+          if (cookieToken) {
+            return cookieToken;
           }
 
-          // Verificar em headers
-          const authHeader = request?.headers?.authorization;
-          if (authHeader) {
-            const [type, token] = authHeader.split(' ');
-            if (type === 'Bearer' && token) {
-              return token;
-            }
+          const authorization = request?.headers?.authorization;
+
+          if (authorization && authorization.startsWith('Bearer ')) {
+            return authorization.substring(7);
           }
 
           return null;
@@ -41,14 +38,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any) {
-    // Aqui você pode adicionar validações adicionais
-    // Por exemplo, verificar se o usuário ainda existe no banco
-    
-    return { 
-      userId: payload.sub, 
+  async validate(payload: { sub: string; email: string; role: string }) {
+    return {
+      userId: payload.sub,
       email: payload.email,
-      role: payload.role 
+      role: payload.role,
     };
   }
 }
