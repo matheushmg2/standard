@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -19,7 +25,7 @@ export class RateLimitGuard implements CanActivate {
     const maxAttempts = rateLimitConfig.max;
 
     const attempts = await this.redisService.get(key);
-    
+
     if (attempts) {
       const currentAttempts = parseInt(attempts, 10);
       if (currentAttempts >= maxAttempts) {
@@ -29,13 +35,13 @@ export class RateLimitGuard implements CanActivate {
             message: 'Muitas tentativas. Tente novamente em alguns minutos.',
             retryAfter: ttl,
           },
-          HttpStatus.TOO_MANY_REQUESTS
+          HttpStatus.TOO_MANY_REQUESTS,
         );
       }
     }
 
     await this.redisService.incr(key);
-    
+
     if (!attempts) {
       await this.redisService.expire(key, ttl);
     }

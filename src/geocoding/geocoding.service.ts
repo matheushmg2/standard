@@ -14,7 +14,8 @@ export class GeocodingService {
       timeout: 10000, // 10 segundos
       headers: {
         // 🔥 USER-AGENT INFORMATIVO (OBRIGATÓRIO)
-        'User-Agent': 'StandardApp/1.0 (https://github.com/matheushmg2/standard; matheushmg2@gmail.com)',
+        'User-Agent':
+          'StandardApp/1.0 (https://github.com/matheushmg2/standard; matheushmg2@gmail.com)',
         'Accept-Language': 'pt-BR,pt;q=0.9',
       },
     });
@@ -51,7 +52,12 @@ export class GeocodingService {
         latitude: parseFloat(result.lat),
         longitude: parseFloat(result.lon),
         formattedAddress: result.display_name,
-        city: addressDetails.city || addressDetails.town || addressDetails.village || addressDetails.locality || addressDetails.municipality,
+        city:
+          addressDetails.city ||
+          addressDetails.town ||
+          addressDetails.village ||
+          addressDetails.locality ||
+          addressDetails.municipality,
         state: addressDetails.state || addressDetails.region,
         country: addressDetails.country,
         postalCode: addressDetails.postcode,
@@ -63,13 +69,19 @@ export class GeocodingService {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 429) {
-          throw new BadRequestException('Limite de requisições excedido. Tente novamente em alguns minutos.');
+          throw new BadRequestException(
+            'Limite de requisições excedido. Tente novamente em alguns minutos.',
+          );
         }
         if (error.response?.status === 403) {
-          throw new BadRequestException('Acesso negado ao serviço de geocodificação. Verifique o User-Agent.');
+          throw new BadRequestException(
+            'Acesso negado ao serviço de geocodificação. Verifique o User-Agent.',
+          );
         }
         console.error('Erro ao geocodificar endereço:', error.message);
-        throw new BadRequestException('Erro ao processar o endereço. Tente novamente.');
+        throw new BadRequestException(
+          'Erro ao processar o endereço. Tente novamente.',
+        );
       }
       throw error;
     }
@@ -98,7 +110,12 @@ export class GeocodingService {
 
       return {
         formattedAddress: response.data.display_name,
-        city: address.city || address.town || address.village || address.locality || address.municipality,
+        city:
+          address.city ||
+          address.town ||
+          address.village ||
+          address.locality ||
+          address.municipality,
         state: address.state || address.region,
         country: address.country,
         postalCode: address.postcode,
@@ -135,7 +152,11 @@ export class GeocodingService {
 
       return response.data.map((item: any) => ({
         name: item.display_name,
-        city: item.address?.city || item.address?.town || item.address?.village || item.display_name,
+        city:
+          item.address?.city ||
+          item.address?.town ||
+          item.address?.village ||
+          item.display_name,
         state: item.address?.state || item.address?.region,
         country: item.address?.country,
         lat: parseFloat(item.lat),

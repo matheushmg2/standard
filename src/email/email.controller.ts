@@ -25,7 +25,11 @@ export class EmailController {
   @Post('test-reset')
   async testResetEmail(@Body() data: { email: string; name: string }) {
     const token = 'test-reset-token-123456';
-    await this.emailService.sendPasswordResetEmail(data.email, data.name, token);
+    await this.emailService.sendPasswordResetEmail(
+      data.email,
+      data.name,
+      token,
+    );
     return { message: 'Email de recuperação enviado!' };
   }
 }

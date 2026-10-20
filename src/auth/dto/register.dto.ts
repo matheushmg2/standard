@@ -10,12 +10,15 @@ import {
   IsPhoneNumber,
   IsUrl,
 } from 'class-validator';
-import { IsCPF, IsCNPJ } from 'cpf-cnpj-validator/class-validator'
+import { IsCPF, IsCNPJ } from 'cpf-cnpj-validator/class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
   // Campos obrigatórios
-  @ApiProperty({ example: 'usuario@email.com', description: 'Email do usuário' })
+  @ApiProperty({
+    example: 'usuario@email.com',
+    description: 'Email do usuário',
+  })
   @IsEmail({}, { message: 'Email inválido' })
   email: string;
 
@@ -31,7 +34,10 @@ export class RegisterDto {
   @MaxLength(50, { message: 'Senha muito longa (máximo 50 caracteres)' })
   @Matches(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    { message: 'Senha deve conter: maiúscula, minúscula, número e caractere especial' }
+    {
+      message:
+        'Senha deve conter: maiúscula, minúscula, número e caractere especial',
+    },
   )
   password: string;
 

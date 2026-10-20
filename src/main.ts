@@ -2,7 +2,7 @@
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
-  NestFastifyApplication
+  NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -14,14 +14,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggerService } from './logger/logger.service';
 
-
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
       logger: true,
       trustProxy: true,
-    })
+    }),
   );
 
   const configService = app.get(ConfigService);
@@ -33,7 +32,8 @@ async function bootstrap() {
   });
 
   // CORS
-  const frontendUrl = configService.get<string>('frontendUrl') || 'http://localhost:4000';
+  const frontendUrl =
+    configService.get<string>('frontendUrl') || 'http://localhost:4000';
   await app.register(fastifyCors, {
     origin: [frontendUrl],
     credentials: true,
@@ -82,7 +82,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-    })
+    }),
   );
 
   // ===== PREFIXO GLOBAL =====
@@ -96,12 +96,12 @@ async function bootstrap() {
   logger.infoWithMetadata(
     'Bootstrap',
     `🚀 Servidor rodando em: http://localhost:${port}`,
-    { port }
+    { port },
   );
   logger.infoWithMetadata(
     'Bootstrap',
     `📚 Documentação Swagger: http://localhost:${port}/api/docs`,
-    { port }
+    { port },
   );
 }
 

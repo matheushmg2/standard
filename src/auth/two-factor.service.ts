@@ -14,14 +14,7 @@ import type { FastifyRequest } from 'fastify';
 
 import { User } from '../users/entities/user.entity';
 import { AuditLogService } from '../logs/audit-log.service';
-import {
-  AuditAction,
-} from '../logs/entities/audit-log.entity';
-
-type TwoFactorVerificationResult = {
-  verified: boolean;
-  isBackupCode: boolean;
-};
+import { AuditAction } from '../logs/entities/audit-log.entity';
 
 @Injectable()
 export class TwoFactorService {
@@ -29,7 +22,7 @@ export class TwoFactorService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly auditLogService: AuditLogService,
-  ) { }
+  ) {}
 
   async generateTwoFactorSecret(userId: string) {
     const user = await this.userRepository.findOne({
@@ -66,11 +59,7 @@ export class TwoFactorService {
     };
   }
 
-  async enableTwoFactor(
-    userId: string,
-    token: string,
-    req?: FastifyRequest,
-  ) {
+  async enableTwoFactor(userId: string, token: string, req?: FastifyRequest) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -99,8 +88,7 @@ export class TwoFactorService {
     const backupCodes = this.generateBackupCodes();
 
     // Somente os hashes são armazenados no banco.
-    user.twoFactorBackupCodes =
-      await this.hashBackupCodes(backupCodes);
+    user.twoFactorBackupCodes = await this.hashBackupCodes(backupCodes);
 
     user.twoFactorEnabled = true;
 
@@ -122,11 +110,7 @@ export class TwoFactorService {
     };
   }
 
-  async disableTwoFactor(
-    userId: string,
-    token: string,
-    req?: FastifyRequest,
-  ) {
+  async disableTwoFactor(userId: string, token: string, req?: FastifyRequest) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -207,7 +191,6 @@ export class TwoFactorService {
     return result;
   }
 
-
   private verifyTotp(secret: string, token: string): boolean {
     const normalizedToken = token.trim();
 
@@ -254,10 +237,7 @@ export class TwoFactorService {
 
     // Os valores no banco devem ser hashes bcrypt.
     for (const [index, hashedCode] of backupCodes.entries()) {
-      const matches = await bcrypt.compare(
-        normalizedToken,
-        hashedCode,
-      );
+      const matches = await bcrypt.compare(normalizedToken, hashedCode);
 
       if (!matches) {
         continue;
@@ -283,26 +263,16 @@ export class TwoFactorService {
     };
   }
 
-
   private generateBackupCodes(): string[] {
     return Array.from({ length: 10 }, () =>
       randomBytes(5).toString('hex').toUpperCase(),
     );
   }
 
-  private async hashBackupCodes(
-    backupCodes: string[],
-  ): Promise<string[]> {
-    const rounds = Number.parseInt(
-      process.env.BCRYPT_ROUNDS || '12',
-      10,
-    );
+  private async hashBackupCodes(backupCodes: string[]): Promise<string[]> {
+    const rounds = Number.parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
 
-    return Promise.all(
-      backupCodes.map((code) =>
-        bcrypt.hash(code, rounds),
-      ),
-    );
+    return Promise.all(backupCodes.map((code) => bcrypt.hash(code, rounds)));
   }
 
   async regenerateBackupCodes(
@@ -330,8 +300,7 @@ export class TwoFactorService {
 
     const backupCodes = this.generateBackupCodes();
 
-    user.twoFactorBackupCodes =
-      await this.hashBackupCodes(backupCodes);
+    user.twoFactorBackupCodes = await this.hashBackupCodes(backupCodes);
 
     await this.userRepository.save(user);
 

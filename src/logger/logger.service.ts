@@ -47,19 +47,35 @@ export class LoggerService {
   }
 
   // ===== MÉTODOS ESTRUTURADOS (COM METADADOS) =====
-  infoWithMetadata(context: string, message: any, metadata?: Record<string, any>) {
+  infoWithMetadata(
+    context: string,
+    message: any,
+    metadata?: Record<string, any>,
+  ) {
     this.logger.info({ context, ...metadata }, message);
   }
 
-  errorWithMetadata(context: string, message: any, metadata?: Record<string, any>) {
+  errorWithMetadata(
+    context: string,
+    message: any,
+    metadata?: Record<string, any>,
+  ) {
     this.logger.error({ context, ...metadata }, message);
   }
 
-  warnWithMetadata(context: string, message: any, metadata?: Record<string, any>) {
+  warnWithMetadata(
+    context: string,
+    message: any,
+    metadata?: Record<string, any>,
+  ) {
     this.logger.warn({ context, ...metadata }, message);
   }
 
-  debugWithMetadata(context: string, message: any, metadata?: Record<string, any>) {
+  debugWithMetadata(
+    context: string,
+    message: any,
+    metadata?: Record<string, any>,
+  ) {
     this.logger.debug({ context, ...metadata }, message);
   }
 
@@ -67,17 +83,18 @@ export class LoggerService {
   getLogger(context: string) {
     return {
       log: (message: any) => this.log(message, context),
-      error: (message: any, trace?: string) => this.error(message, trace, context),
+      error: (message: any, trace?: string) =>
+        this.error(message, trace, context),
       warn: (message: any) => this.warn(message, context),
       debug: (message: any) => this.debug(message, context),
       verbose: (message: any) => this.verbose(message, context),
-      infoWithMetadata: (message: any, metadata?: Record<string, any>) => 
+      infoWithMetadata: (message: any, metadata?: Record<string, any>) =>
         this.infoWithMetadata(context, message, metadata),
-      errorWithMetadata: (message: any, metadata?: Record<string, any>) => 
+      errorWithMetadata: (message: any, metadata?: Record<string, any>) =>
         this.errorWithMetadata(context, message, metadata),
-      warnWithMetadata: (message: any, metadata?: Record<string, any>) => 
+      warnWithMetadata: (message: any, metadata?: Record<string, any>) =>
         this.warnWithMetadata(context, message, metadata),
-      debugWithMetadata: (message: any, metadata?: Record<string, any>) => 
+      debugWithMetadata: (message: any, metadata?: Record<string, any>) =>
         this.debugWithMetadata(context, message, metadata),
     };
   }

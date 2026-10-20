@@ -22,9 +22,10 @@ export class AuditLogService {
     req?: FastifyRequest,
     description?: string,
   ): Promise<AuditLog> {
-    const ip = req?.ip || 
-               (req?.raw?.connection?.remoteAddress) || 
-               (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim();
+    const ip =
+      req?.ip ||
+      req?.raw?.connection?.remoteAddress ||
+      (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim();
 
     const log = this.auditLogRepository.create({
       userId,
@@ -46,9 +47,8 @@ export class AuditLogService {
         ip,
         userAgent: req?.headers?.['user-agent'],
         ...metadata,
-      }
+      },
     );
-
 
     return this.auditLogRepository.save(log);
   }
@@ -90,7 +90,10 @@ export class AuditLogService {
     return { logs, total };
   }
 
-  async getUserActivitySummary(userId: string, days: number = 30): Promise<any> {
+  async getUserActivitySummary(
+    userId: string,
+    days: number = 30,
+  ): Promise<any> {
     const date = new Date();
     date.setDate(date.getDate() - days);
 
@@ -103,10 +106,13 @@ export class AuditLogService {
     });
 
     // Agrupar por ação
-    const summary = logs.reduce((acc, log) => {
-      acc[log.action] = (acc[log.action] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const summary = logs.reduce(
+      (acc, log) => {
+        acc[log.action] = (acc[log.action] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       total: logs.length,
@@ -118,27 +124,27 @@ export class AuditLogService {
   }
 
   async getSuspiciousActivities(
-  options: {
-    limit?: number;
-    offset?: number;
-  } = {},
-): Promise<AuditLog[]> {
-  const { limit = 100, offset = 0 } = options;
+    options: {
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<AuditLog[]> {
+    const { limit = 100, offset = 0 } = options;
 
-  const suspiciousActions = [
-    AuditAction.LOGIN_FAILED,
-    AuditAction.THREAT_DETECTED,
-    AuditAction.SUSPICIOUS_ACTIVITY,
-  ];
+    const suspiciousActions = [
+      AuditAction.LOGIN_FAILED,
+      AuditAction.THREAT_DETECTED,
+      AuditAction.SUSPICIOUS_ACTIVITY,
+    ];
 
-  return this.auditLogRepository.find({
-    where: { action: In(suspiciousActions) },
-    order: { createdAt: 'DESC' },
-    skip: offset,
-    take: limit,
-    // relations: ['user'], // ← REMOVER esta linha
-  });
-}
+    return this.auditLogRepository.find({
+      where: { action: In(suspiciousActions) },
+      order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
+      // relations: ['user'], // ← REMOVER esta linha
+    });
+  }
 
   async getLoginAttempts(
     userId: string,
@@ -157,7 +163,9 @@ export class AuditLogService {
     });
 
     const success = logs.filter((l) => l.action === AuditAction.LOGIN).length;
-    const failed = logs.filter((l) => l.action === AuditAction.LOGIN_FAILED).length;
+    const failed = logs.filter(
+      (l) => l.action === AuditAction.LOGIN_FAILED,
+    ).length;
 
     return { success, failed, attempts: logs };
   }

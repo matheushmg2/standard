@@ -17,6 +17,7 @@ import { Session } from './sessions/entities/session.entity';
 import { HealthModule } from './health/health.module';
 import { LoggerModule } from './logger/logger.module';
 import { UsersModule } from './users/users.module';
+import { GeocodingModule } from './geocoding/geocoding.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
     }),
     LoggerModule,
     AuthModule,
+    GeocodingModule,
     RedisModule,
     EmailModule,
     LogsModule,
@@ -57,4 +59,4 @@ import { UsersModule } from './users/users.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

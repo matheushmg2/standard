@@ -26,11 +26,11 @@ export class EmailService {
       this.logger.warnWithMetadata(
         'EmailService',
         'Usando Ethereal (email fake) para testes...',
-        {}
+        {},
       );
 
       const testAccount = await createTestAccount();
-      
+
       this.transporter = nodemailer.createTransport({
         host: testAccount.smtp.host,
         port: testAccount.smtp.port,
@@ -47,9 +47,9 @@ export class EmailService {
         {
           email: testAccount.user,
           loginUrl: 'https://ethereal.email/login',
-        }
+        },
       );
-      
+
       return;
     }
 
@@ -79,7 +79,7 @@ export class EmailService {
       this.logger.infoWithMetadata(
         'EmailService',
         'Servidor de email configurado com sucesso!',
-        {}
+        {},
       );
     } catch (error: any) {
       this.logger.errorWithMetadata(
@@ -87,19 +87,20 @@ export class EmailService {
         'Erro ao conectar com servidor de email',
         {
           error: error.message,
-        }
+        },
       );
       this.logger.warnWithMetadata(
         'EmailService',
         'Usando modo de fallback (emails serão logados no console)',
-        {}
+        {},
       );
     }
   }
 
   // ===== ENVIAR EMAIL DE VERIFICAÇÃO =====
   async sendVerificationEmail(email: string, name: string, token: string) {
-    const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
+    const frontendUrl =
+      this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
     const html = `
@@ -164,13 +165,14 @@ export class EmailService {
         name,
         subject: 'Verifique seu email - MeuApp',
         type: 'verification',
-      }
+      },
     );
   }
 
   // ===== ENVIAR EMAIL DE RECUPERAÇÃO DE SENHA =====
   async sendPasswordResetEmail(email: string, name: string, token: string) {
-    const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
+    const frontendUrl =
+      this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
     const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
     const html = `
@@ -235,12 +237,17 @@ export class EmailService {
         name,
         subject: 'Recuperação de Senha - MeuApp',
         type: 'password_reset',
-      }
+      },
     );
   }
 
   // ===== ENVIAR EMAIL DE NOVO LOGIN =====
-  async sendNewLoginEmail(email: string, name: string, ip: string, device: string) {
+  async sendNewLoginEmail(
+    email: string,
+    name: string,
+    ip: string,
+    device: string,
+  ) {
     const html = `
       <!DOCTYPE html>
       <html>
@@ -295,7 +302,7 @@ export class EmailService {
         device,
         subject: 'Novo Login Detectado - MeuApp',
         type: 'new_login',
-      }
+      },
     );
   }
 
@@ -325,7 +332,7 @@ export class EmailService {
           to: options.to,
           subject: options.subject,
           messageId: result.messageId,
-        }
+        },
       );
 
       return result;
@@ -339,7 +346,7 @@ export class EmailService {
           subject: options.subject,
           error: error.message,
           code: error.code,
-        }
+        },
       );
 
       // Fallback: log do email
@@ -350,7 +357,7 @@ export class EmailService {
           to: options.to,
           subject: options.subject,
           htmlPreview: options.html.substring(0, 200) + '...',
-        }
+        },
       );
 
       throw error;
@@ -372,7 +379,7 @@ export class EmailService {
       this.logger.infoWithMetadata(
         'EmailService',
         'Teste de conexão com servidor de email: OK',
-        {}
+        {},
       );
       return { success: true, message: 'Conexão com servidor de email OK' };
     } catch (error: any) {
@@ -381,7 +388,7 @@ export class EmailService {
         'Teste de conexão com servidor de email: FALHOU',
         {
           error: error.message,
-        }
+        },
       );
       return { success: false, message: error.message };
     }

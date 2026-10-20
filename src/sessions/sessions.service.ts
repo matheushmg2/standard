@@ -1,49 +1,55 @@
 // src/sessions/sessions.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, LessThan, IsNull } from 'typeorm'; // ← Adicionar Not
+import { LessThan, MoreThan, Not, Repository } from 'typeorm';
+import type { FastifyRequest } from 'fastify';
+
 import { Session } from './entities/session.entity';
 import { User } from '../users/entities/user.entity';
-import { FastifyRequest } from 'fastify';
 import { hashToken } from '../common/crypto/token-hash';
 
 @Injectable()
 export class SessionsService {
   constructor(
     @InjectRepository(Session)
-    private sessionRepository: Repository<Session>,
-  ) { }
+    private readonly sessionRepository: Repository<Session>,
+  ) {}
 
-  // ===== CRIAR SESSÃO =====
   async createSession(
     user: User,
     refreshToken: string,
     req?: FastifyRequest,
+    deviceName?: string,
   ): Promise<Session> {
     const session = this.sessionRepository.create({
       userId: user.id,
-      refreshTokenHash: hashToken(refreshToken),
-      expiresAt: new Date(
-        Date.now() + 7 * 24 * 60 * 60 * 1000,
-      ),
-      lastActivityAt: new Date(),
+
+      // A coluna continua chamada refreshToken,
+      // mas o valor armazenado é o hash.
+      refreshToken: hashToken(refreshToken),
+
+      userAgent: req?.headers?.['user-agent'] as string,
       ipAddress: req?.ip,
-      userAgent: req?.headers['user-agent'],
+      deviceName: deviceName ?? this.getDeviceName(req),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      lastActivityAt: new Date(),
+      isActive: true,
     });
 
     return this.sessionRepository.save(session);
   }
 
-  // ===== VALIDAR SESSÃO =====
   async validateSession(
     refreshToken: string,
+    expectedUserId?: string,
   ): Promise<Session | null> {
     const refreshTokenHash = hashToken(refreshToken);
 
     const session = await this.sessionRepository.findOne({
       where: {
-        refreshTokenHash,
-        revokedAt: IsNull(),
+        refreshToken: refreshTokenHash,
+        isActive: true,
+        expiresAt: MoreThan(new Date()),
       },
     });
 
@@ -51,29 +57,36 @@ export class SessionsService {
       return null;
     }
 
-    if (session.expiresAt <= new Date()) {
+    if (expectedUserId && session.userId !== expectedUserId) {
       return null;
     }
+
+    session.lastActivityAt = new Date();
+    await this.sessionRepository.save(session);
 
     return session;
   }
 
-  // ===== LISTAR SESSÕES DO USUÁRIO =====
   async getUserSessions(userId: string): Promise<Session[]> {
     return this.sessionRepository.find({
       where: {
         userId,
         isActive: true,
-        expiresAt: LessThan(new Date()),
+        expiresAt: MoreThan(new Date()),
       },
-      order: { lastActivityAt: 'DESC' },
+      order: {
+        lastActivityAt: 'DESC',
+      },
     });
   }
 
-  // ===== ENCERRAR SESSÃO =====
   async revokeSession(sessionId: string, userId: string): Promise<void> {
     const session = await this.sessionRepository.findOne({
-      where: { id: sessionId, userId },
+      where: {
+        id: sessionId,
+        userId,
+        isActive: true,
+      },
     });
 
     if (!session) {
@@ -84,35 +97,38 @@ export class SessionsService {
     await this.sessionRepository.save(session);
   }
 
-  // ===== ENCERRAR TODAS AS SESSÕES (EXCETO A ATUAL) =====
   async revokeAllSessionsExcept(
     userId: string,
     currentSessionId: string,
   ): Promise<number> {
-    // 🔥 CORRIGIDO: Usar Not em vez de $ne
     const result = await this.sessionRepository.update(
       {
         userId,
-        id: Not(currentSessionId), // ← CORRIGIDO
+        id: Not(currentSessionId),
         isActive: true,
       },
-      { isActive: false },
+      {
+        isActive: false,
+      },
     );
 
-    return result.affected || 0;
+    return result.affected ?? 0;
   }
 
-  // ===== ENCERRAR TODAS AS SESSÕES =====
   async revokeAllSessions(userId: string): Promise<number> {
     const result = await this.sessionRepository.update(
-      { userId, isActive: true },
-      { isActive: false },
+      {
+        userId,
+        isActive: true,
+      },
+      {
+        isActive: false,
+      },
     );
 
-    return result.affected || 0;
+    return result.affected ?? 0;
   }
 
-  // ===== LIMPAR SESSÕES EXPIRADAS =====
   async cleanExpiredSessions(): Promise<number> {
     const result = await this.sessionRepository.delete({
       expiresAt: LessThan(new Date()),
@@ -121,18 +137,36 @@ export class SessionsService {
     return result.affected ?? 0;
   }
 
-  // ===== UTILITÁRIO: NOME DO DISPOSITIVO =====
   private getDeviceName(req?: FastifyRequest): string {
-    if (!req) return 'Dispositivo Desconhecido';
+    if (!req) {
+      return 'Dispositivo Desconhecido';
+    }
 
-    const ua = req.headers?.['user-agent'] as string;
-    if (!ua) return 'Dispositivo Desconhecido';
+    const userAgent = req.headers?.['user-agent'];
 
-    if (ua.includes('Mobile')) return 'Mobile';
-    if (ua.includes('Tablet')) return 'Tablet';
-    if (ua.includes('Mac')) return 'Mac';
-    if (ua.includes('Windows')) return 'Windows';
-    if (ua.includes('Linux')) return 'Linux';
+    if (!userAgent) {
+      return 'Dispositivo Desconhecido';
+    }
+
+    if (userAgent.includes('Mobile')) {
+      return 'Mobile';
+    }
+
+    if (userAgent.includes('Tablet')) {
+      return 'Tablet';
+    }
+
+    if (userAgent.includes('Mac')) {
+      return 'Mac';
+    }
+
+    if (userAgent.includes('Windows')) {
+      return 'Windows';
+    }
+
+    if (userAgent.includes('Linux')) {
+      return 'Linux';
+    }
 
     return 'Desktop';
   }

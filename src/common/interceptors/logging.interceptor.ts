@@ -36,7 +36,7 @@ export class LoggingInterceptor implements NestInterceptor {
               elapsed,
               ip,
               userAgent,
-            }
+            },
           );
         },
         error: (error) => {
@@ -52,10 +52,10 @@ export class LoggingInterceptor implements NestInterceptor {
               ip,
               userAgent,
               error: error.message,
-            }
+            },
           );
         },
-      })
+      }),
     );
   }
 }

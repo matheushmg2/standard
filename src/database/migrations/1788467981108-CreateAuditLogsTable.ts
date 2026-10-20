@@ -1,5 +1,11 @@
 // src/database/migrations/1788467981108-CreateAuditLogsTable.ts
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableColumn } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableColumn,
+} from 'typeorm';
 
 export class CreateAuditLogsTable1788467981108 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

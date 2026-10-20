@@ -15,7 +15,10 @@ import {
 export const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 export class CreateUserDto {
-  @ApiProperty({ example: 'usuario@email.com', description: 'Email do usuário' })
+  @ApiProperty({
+    example: 'usuario@email.com',
+    description: 'Email do usuário',
+  })
   @IsEmail({}, { message: 'Email inválido' })
   email: string;
 
@@ -29,30 +32,42 @@ export class CreateUserDto {
   @IsString()
   @MinLength(8)
   @MaxLength(50)
-  @Matches(
-    PASSWORD_REGEX,
-    { message: 'Senha deve conter maiúscula, minúscula, número e caractere especial' }
-  )
+  @Matches(PASSWORD_REGEX, {
+    message:
+      'Senha deve conter maiúscula, minúscula, número e caractere especial',
+  })
   password: string;
 
   // Documentos
-  @ApiPropertyOptional({ example: '12345678901', description: 'CPF (opcional)' })
+  @ApiPropertyOptional({
+    example: '12345678901',
+    description: 'CPF (opcional)',
+  })
   @IsOptional()
   @IsString()
   cpf?: string;
 
-  @ApiPropertyOptional({ example: '12345678000190', description: 'CNPJ (opcional)' })
+  @ApiPropertyOptional({
+    example: '12345678000190',
+    description: 'CNPJ (opcional)',
+  })
   @IsOptional()
   @IsString()
   cnpj?: string;
 
-  @ApiPropertyOptional({ example: 'MG-12.345.678', description: 'RG (opcional)' })
+  @ApiPropertyOptional({
+    example: 'MG-12.345.678',
+    description: 'RG (opcional)',
+  })
   @IsOptional()
   @IsString()
   rg?: string;
 
   // Dados Pessoais
-  @ApiPropertyOptional({ example: '1990-01-01', description: 'Data de nascimento' })
+  @ApiPropertyOptional({
+    example: '1990-01-01',
+    description: 'Data de nascimento',
+  })
   @IsOptional()
   @IsDateString()
   birthDate?: string;
@@ -67,19 +82,28 @@ export class CreateUserDto {
   @IsPhoneNumber('BR')
   whatsapp?: string;
 
-  @ApiPropertyOptional({ example: 'https://avatar.com/foto.jpg', description: 'URL do avatar' })
+  @ApiPropertyOptional({
+    example: 'https://avatar.com/foto.jpg',
+    description: 'URL do avatar',
+  })
   @IsOptional()
   @IsUrl()
   avatarUrl?: string;
 
-  @ApiPropertyOptional({ example: 'Desenvolvedor full-stack', description: 'Biografia' })
+  @ApiPropertyOptional({
+    example: 'Desenvolvedor full-stack',
+    description: 'Biografia',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)
   bio?: string;
 
   // Endereço
-  @ApiPropertyOptional({ example: 'Rua das Flores, 123', description: 'Endereço completo' })
+  @ApiPropertyOptional({
+    example: 'Rua das Flores, 123',
+    description: 'Endereço completo',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(255)
@@ -88,7 +112,7 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: '01001-000', description: 'CEP' })
   @IsOptional()
   @IsString()
-  @MaxLength(10) 
+  @MaxLength(10)
   zipCode?: string;
 
   @ApiPropertyOptional({ example: 'Rua das Flores', description: 'Logradouro' })
@@ -139,7 +163,10 @@ export class CreateUserDto {
   @MaxLength(10)
   language?: string;
 
-  @ApiPropertyOptional({ example: 'America/Sao_Paulo', description: 'Fuso horário' })
+  @ApiPropertyOptional({
+    example: 'America/Sao_Paulo',
+    description: 'Fuso horário',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(50)

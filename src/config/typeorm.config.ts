@@ -23,9 +23,12 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
         max: 20,
         idleTimeoutMillis: 30000,
       },
-      ssl: this.configService.get('nodeEnv') === 'production' ? {
-        rejectUnauthorized: false,
-      } : false,
+      ssl:
+        this.configService.get('nodeEnv') === 'production'
+          ? {
+              rejectUnauthorized: false,
+            }
+          : false,
     };
   }
 }

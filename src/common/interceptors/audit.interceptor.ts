@@ -23,10 +23,7 @@ export class AuditInterceptor implements NestInterceptor {
     const handler = context.getHandler();
 
     // Pular se não tiver ação definida
-    const action = this.reflector.get<AuditAction>(
-      'auditAction',
-      handler,
-    );
+    const action = this.reflector.get<AuditAction>('auditAction', handler);
 
     if (!action) {
       return next.handle();

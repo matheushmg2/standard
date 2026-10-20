@@ -6,7 +6,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   BeforeInsert,
-  OneToMany
+  OneToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
@@ -35,9 +35,9 @@ export class User {
   @Exclude()
   password: string;
 
-  @Column({ nullable: true })
+  /*@Column({ nullable: true })
   @Exclude()
-  refreshToken?: string;
+  refreshToken?: string;*/
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
@@ -169,13 +169,13 @@ export class User {
   }
 
   async comparePassword(plainPassword: string): Promise<boolean> {
-  // Adicionar log para debug
-  console.log('Comparando senha:', {
-    plain: plainPassword,
-    hash: this.password.substring(0, 20) + '...'
-  });
-  return bcrypt.compare(plainPassword, this.password);
-}
+    // Adicionar log para debug
+    console.log('Comparando senha:', {
+      plain: plainPassword,
+      hash: this.password.substring(0, 20) + '...',
+    });
+    return bcrypt.compare(plainPassword, this.password);
+  }
 
   isLocked(): boolean {
     return Boolean(this.lockUntil && new Date() < this.lockUntil);

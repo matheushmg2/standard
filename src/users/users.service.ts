@@ -1,5 +1,11 @@
 // src/users/users.service.ts
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -13,8 +19,10 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+
+    @Inject(forwardRef(() => GeocodingService))
     private geocodingService: GeocodingService, // ← Injetar
-  ) { }
+  ) {}
 
   // ===== CRIAR USUÁRIO =====
   async create(createUserDto: CreateUserDto) {
@@ -30,9 +38,8 @@ export class UsersService {
     }
 
     // 2. Geocodificar endereço (se fornecido)
-    let locationData: Awaited<
-      ReturnType<GeocodingService['geocodeAddress']>
-    > = null;
+    let locationData: Awaited<ReturnType<GeocodingService['geocodeAddress']>> =
+      null;
     if (address) {
       locationData = await this.geocodingService.geocodeAddress(address);
     }
@@ -160,5 +167,4 @@ export class UsersService {
   toResponseList(users: User[]): UserResponseDto[] {
     return users.map((user) => this.toResponse(user));
   }
-
 }

@@ -12,7 +12,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         length: '14',
         isNullable: true,
         isUnique: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -23,7 +23,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         length: '18',
         isNullable: true,
         isUnique: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -33,7 +33,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '13',
         isNullable: true,
-      })
+      }),
     );
 
     // Dados Pessoais
@@ -43,7 +43,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         name: 'birthDate',
         type: 'date',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -53,7 +53,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '20',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -63,7 +63,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '20',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -73,7 +73,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '255',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -83,7 +83,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '500',
         isNullable: true,
-      })
+      }),
     );
 
     // Endereço
@@ -94,7 +94,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '10',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -104,7 +104,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '255',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -114,7 +114,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '10',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -124,7 +124,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '100',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -134,7 +134,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '100',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -144,7 +144,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '100',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -154,7 +154,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '2',
         isNullable: true,
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -164,8 +164,8 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         type: 'varchar',
         length: '50',
         isNullable: true,
-        default: "'Brasil'",  // ← CORRIGIDO: aspas simples
-      })
+        default: "'Brasil'", // ← CORRIGIDO: aspas simples
+      }),
     );
 
     // Preferências - CORRIGIDO
@@ -175,8 +175,8 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         name: 'preferences',
         type: 'jsonb',
         isNullable: true,
-        default: "'{}'",  // ← CORRIGIDO: '{}' com aspas simples
-      })
+        default: "'{}'", // ← CORRIGIDO: '{}' com aspas simples
+      }),
     );
 
     await queryRunner.addColumn(
@@ -187,7 +187,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         length: '10',
         isNullable: true,
         default: "'pt-BR'",
-      })
+      }),
     );
 
     await queryRunner.addColumn(
@@ -198,20 +198,20 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
         length: '50',
         isNullable: true,
         default: "'America/Sao_Paulo'",
-      })
+      }),
     );
 
     // Criar índices
     await queryRunner.query(
-      `CREATE INDEX "IDX_USER_CPF" ON "users" ("cpf") WHERE "cpf" IS NOT NULL;`
+      `CREATE INDEX "IDX_USER_CPF" ON "users" ("cpf") WHERE "cpf" IS NOT NULL;`,
     );
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_USER_CNPJ" ON "users" ("cnpj") WHERE "cnpj" IS NOT NULL;`
+      `CREATE INDEX "IDX_USER_CNPJ" ON "users" ("cnpj") WHERE "cnpj" IS NOT NULL;`,
     );
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_USER_PHONE" ON "users" ("phone") WHERE "phone" IS NOT NULL;`
+      `CREATE INDEX "IDX_USER_PHONE" ON "users" ("phone") WHERE "phone" IS NOT NULL;`,
     );
   }
 
