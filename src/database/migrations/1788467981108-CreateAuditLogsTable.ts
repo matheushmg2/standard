@@ -1,4 +1,4 @@
-// src/database/migrations/1788467981108-CreateAuditLogsTable.ts
+
 import {
   MigrationInterface,
   QueryRunner,
@@ -9,7 +9,7 @@ import {
 
 export class CreateAuditLogsTable1788467981108 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Criar a tabela sem a coluna metadata primeiro
+    
     await queryRunner.createTable(
       new Table({
         name: 'audit_logs',
@@ -44,7 +44,7 @@ export class CreateAuditLogsTable1788467981108 implements MigrationInterface {
             length: '255',
             isNullable: true,
           },
-          // Remover metadata daqui
+          
           {
             name: 'description',
             type: 'text',
@@ -61,7 +61,7 @@ export class CreateAuditLogsTable1788467981108 implements MigrationInterface {
       true,
     );
 
-    // Adicionar a coluna metadata separadamente com o DEFAULT correto
+    
     await queryRunner.addColumn(
       'audit_logs',
       new TableColumn({
@@ -72,7 +72,7 @@ export class CreateAuditLogsTable1788467981108 implements MigrationInterface {
       }),
     );
 
-    // Criar índices
+    
     await queryRunner.createIndex(
       'audit_logs',
       new TableIndex({

@@ -1,4 +1,4 @@
-// src/auth/two-factor.service.ts
+
 import {
   BadRequestException,
   Injectable,
@@ -84,10 +84,10 @@ export class TwoFactorService {
       throw new BadRequestException('Token 2FA inválido');
     }
 
-    // Os códigos em texto puro só são retornados uma vez.
+    
     const backupCodes = this.generateBackupCodes();
 
-    // Somente os hashes são armazenados no banco.
+    
     user.twoFactorBackupCodes = await this.hashBackupCodes(backupCodes);
 
     user.twoFactorEnabled = true;
@@ -215,7 +215,7 @@ export class TwoFactorService {
   }> {
     const normalizedToken = token.trim();
 
-    // Primeiro verifica um código TOTP normal.
+    
     if (
       user.twoFactorSecret &&
       this.verifyTotp(user.twoFactorSecret, normalizedToken)
@@ -235,7 +235,7 @@ export class TwoFactorService {
       };
     }
 
-    // Os valores no banco devem ser hashes bcrypt.
+    
     for (const [index, hashedCode] of backupCodes.entries()) {
       const matches = await bcrypt.compare(normalizedToken, hashedCode);
 
@@ -243,12 +243,12 @@ export class TwoFactorService {
         continue;
       }
 
-      // Remove o código usado.
+      
       user.twoFactorBackupCodes = backupCodes.filter(
         (_, currentIndex) => currentIndex !== index,
       );
 
-      // Aguarda a persistência antes de liberar o login.
+      
       await this.userRepository.save(user);
 
       return {

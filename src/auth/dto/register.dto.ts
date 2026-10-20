@@ -1,4 +1,4 @@
-// src/auth/dto/register.dto.ts
+
 import {
   IsEmail,
   IsString,
@@ -14,7 +14,7 @@ import { IsCPF, IsCNPJ } from 'cpf-cnpj-validator/class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
-  // Campos obrigatórios
+  
   @ApiProperty({
     example: 'usuario@email.com',
     description: 'Email do usuário',
@@ -41,7 +41,7 @@ export class RegisterDto {
   )
   password: string;
 
-  // 🆕 Campos opcionais
+  
   @ApiProperty({ example: '12345678901', required: false })
   @IsOptional()
   @IsCPF({ message: 'CPF inválido' })
@@ -80,7 +80,7 @@ export class RegisterDto {
   @MaxLength(500, { message: 'Bio muito longa (máximo 500 caracteres)' })
   bio?: string;
 
-  // Endereço (opcional)
+  
   @ApiProperty({ example: '12345678', required: false })
   @IsOptional()
   @IsString()
@@ -114,7 +114,7 @@ export class RegisterDto {
   @IsString()
   country?: string;
 
-  // Preferências (opcional)
+  
   @IsOptional()
   language?: string;
 

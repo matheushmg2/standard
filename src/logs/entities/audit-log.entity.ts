@@ -1,4 +1,4 @@
-// src/logs/entities/audit-log.entity.ts
+
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -11,35 +11,35 @@ import {
 import { User } from '../../users/entities/user.entity';
 
 export enum AuditAction {
-  // Autenticação
+  
   LOGIN = 'LOGIN',
   LOGOUT = 'LOGOUT',
   REGISTER = 'REGISTER',
   LOGIN_FAILED = 'LOGIN_FAILED',
 
-  // Perfil
+  
   PROFILE_UPDATE = 'PROFILE_UPDATE',
   PASSWORD_CHANGE = 'PASSWORD_CHANGE',
   PASSWORD_RESET = 'PASSWORD_RESET',
   EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
 
-  // Tokens
+  
   TOKEN_REFRESH = 'TOKEN_REFRESH',
   TOKEN_REVOKE = 'TOKEN_REVOKE',
 
-  // Segurança
+  
   TWO_FACTOR_ENABLE = 'TWO_FACTOR_ENABLE',
   TWO_FACTOR_DISABLE = 'TWO_FACTOR_DISABLE',
   TWO_FACTOR_VERIFY = 'TWO_FACTOR_VERIFY',
 
-  // Admin
+  
   USER_CREATE = 'USER_CREATE',
   USER_UPDATE = 'USER_UPDATE',
   USER_DELETE = 'USER_DELETE',
   USER_BLOCK = 'USER_BLOCK',
   USER_UNBLOCK = 'USER_UNBLOCK',
 
-  // Sistema
+  
   THREAT_DETECTED = 'THREAT_DETECTED',
   SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY',
 }

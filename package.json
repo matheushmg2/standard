@@ -40,7 +40,7 @@
     "docker:start-dev": "./shell/start-dev.sh",
     "_CLEANING": "// ===== SCRIPTS DE TESTE =====",
     "lint:check": "eslint src/ --max-warnings=9999 || (echo '⚠️  Lint encontrou problemas' && exit 1)",
-    "lint:ok": "eslint src/ && echo '✅ Lint passou sem problemas!'",
+    "lint:ok": "npx ts-node scripts/strip-comments.ts src/ && eslint src/ --fix && echo '✅ Lint passou sem problemas!'",
     "lint:report": "eslint src/; EXIT=$?; if [ $EXIT -eq 0 ]; then echo '✅ Sucesso: nenhum problema de lint'; else echo \"⚠️  ESLint saiu com código $EXIT (pode haver warnings/errors)\"; fi; exit $EXIT",
     "lint:check-test": "eslint test/ --max-warnings=9999 || (echo '⚠️  Lint encontrou problemas' && exit 1)",
     "lint:ok-test": "eslint test/ && echo '✅ Lint passou sem problemas!'",

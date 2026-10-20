@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 export class CreateUsersTable1788287105010 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Habilitar extensão UUID
+    
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
     await queryRunner.createTable(
@@ -115,7 +115,7 @@ export class CreateUsersTable1788287105010 implements MigrationInterface {
       true,
     );
 
-    // Adicionar índices
+    
     await queryRunner.createIndex(
       'users',
       new TableIndex({

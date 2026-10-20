@@ -1,4 +1,4 @@
-// src/users/entities/user.entity.ts
+
 import {
   Entity,
   Column,
@@ -21,7 +21,7 @@ export enum UserRole {
 
 @Entity('users')
 export class User {
-  // ===== CAMPOS EXISTENTES =====
+  
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -35,9 +35,7 @@ export class User {
   @Exclude()
   password: string;
 
-  /*@Column({ nullable: true })
-  @Exclude()
-  refreshToken?: string;*/
+  
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
@@ -78,7 +76,7 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // ===== 2FA =====
+  
   @Column({ nullable: true })
   @Exclude()
   twoFactorSecret?: string;
@@ -90,9 +88,9 @@ export class User {
   @Exclude()
   twoFactorBackupCodes?: string[];
 
-  // ===== 🆕 NOVOS CAMPOS =====
+  
 
-  // Documentos
+  
   @Column({ nullable: true, unique: true })
   cpf?: string;
 
@@ -102,7 +100,7 @@ export class User {
   @Column({ nullable: true, unique: true, length: 13 })
   rg?: string;
 
-  // Dados Pessoais
+  
   @Column({ nullable: true })
   birthDate?: Date;
 
@@ -118,7 +116,7 @@ export class User {
   @Column({ nullable: true, length: 500 })
   bio?: string;
 
-  // Endereço
+  
   @Column({ nullable: true })
   zipCode?: string;
 
@@ -143,7 +141,7 @@ export class User {
   @Column({ nullable: true })
   country?: string;
 
-  // Preferências
+  
   @Column({ type: 'jsonb', nullable: true, default: {} })
   preferences?: Record<string, any>;
 
@@ -156,9 +154,9 @@ export class User {
   @OneToMany(() => PasswordHistory, (history) => history.user)
   passwordHistory: PasswordHistory[];
 
-  // ===== MÉTODOS EXISTENTES =====
+  
   @BeforeInsert()
-  // @BeforeUpdate()
+  
   async hashPassword() {
     if (!this.password) {
       return;
@@ -169,7 +167,7 @@ export class User {
   }
 
   async comparePassword(plainPassword: string): Promise<boolean> {
-    // Adicionar log para debug
+    
     console.log('Comparando senha:', {
       plain: plainPassword,
       hash: this.password.substring(0, 20) + '...',

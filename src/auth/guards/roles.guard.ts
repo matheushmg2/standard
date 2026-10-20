@@ -1,4 +1,4 @@
-// src/auth/guards/roles.guard.ts
+
 import {
   CanActivate,
   ExecutionContext,
@@ -28,8 +28,8 @@ export class RolesGuard implements CanActivate {
         ],
       );
 
-    // Se não houver @Roles(), apenas o
-    // JwtAuthGuard global fará a autenticação.
+    
+    
     if (!requiredRoles?.length) {
       return true;
     }

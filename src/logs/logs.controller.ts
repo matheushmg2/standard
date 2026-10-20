@@ -1,4 +1,4 @@
-// src/logs/logs.controller.ts
+
 import {
   Controller,
   Get,
@@ -13,10 +13,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { AuditAction } from './entities/audit-log.entity';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { FastifyRequest } from 'fastify'; // ← Importar FastifyRequest
+import { FastifyRequest } from 'fastify'; 
 import {
-  ApiBearerAuth,
-  ApiCookieAuth,
   ApiOperation,
   ApiQuery,
   ApiResponse,

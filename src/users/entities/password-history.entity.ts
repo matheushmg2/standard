@@ -1,4 +1,4 @@
-// src/users/entities/password-history.entity.ts
+
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -18,7 +18,7 @@ export class PasswordHistory {
   userId: string;
 
   @Column()
-  passwordHash: string; // Hash da senha anterior
+  passwordHash: string; 
 
   @CreateDateColumn()
   createdAt: Date;

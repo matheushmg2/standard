@@ -1,4 +1,4 @@
-// src/sessions/sessions.service.ts
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, MoreThan, Not, Repository } from 'typeorm';
@@ -24,8 +24,8 @@ export class SessionsService {
     const session = this.sessionRepository.create({
       userId: user.id,
 
-      // A coluna continua chamada refreshToken,
-      // mas o valor armazenado é o hash.
+      
+      
       refreshToken: hashToken(refreshToken),
 
       userAgent: req?.headers?.['user-agent'] as string,

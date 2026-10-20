@@ -1,8 +1,8 @@
-// src/logs/audit-log.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, LessThan, In } from 'typeorm';
-import { FastifyRequest } from 'fastify'; // ← Importar FastifyRequest
+import { FastifyRequest } from 'fastify'; 
 
 import { AuditLog, AuditAction } from './entities/audit-log.entity';
 import { LoggerService } from '../logger/logger.service';
@@ -36,7 +36,7 @@ export class AuditLogService {
       userAgent: req?.headers?.['user-agent'] as string,
     });
 
-    // LOG ESTRUTURADO COM PINO
+    
     this.logger.infoWithMetadata(
       'AuditLog',
       `Ação registrada: ${action}${description ? ` - ${description}` : ''}`,
@@ -105,7 +105,7 @@ export class AuditLogService {
       order: { createdAt: 'DESC' },
     });
 
-    // Agrupar por ação
+    
     const summary = logs.reduce(
       (acc, log) => {
         acc[log.action] = (acc[log.action] || 0) + 1;

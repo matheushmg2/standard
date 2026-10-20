@@ -1,16 +1,16 @@
-// src/auth/dto/two-factor.dto.ts
+
 import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class EnableTwoFactorDto {
   @IsString()
   @IsNotEmpty()
-  token: string; // Código de verificação do Google Authenticator
+  token: string; 
 }
 
 export class VerifyTwoFactorDto {
   @IsString()
   @IsNotEmpty()
-  token: string; // Código de verificação do Google Authenticator
+  token: string; 
 }
 
 export class LoginTwoFactorDto {
@@ -24,11 +24,11 @@ export class LoginTwoFactorDto {
 
   @IsString()
   @IsNotEmpty()
-  twoFactorToken: string; // Código do 2FA
+  twoFactorToken: string; 
 }
 
 export class BackupCodesDto {
   @IsString()
   @IsOptional()
-  code?: string; // Código de backup para recuperação
+  code?: string; 
 }

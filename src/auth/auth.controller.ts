@@ -1,4 +1,4 @@
-// src/auth/auth.controller.ts
+
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
   Body,
