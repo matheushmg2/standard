@@ -1,4 +1,4 @@
-// src/logger/logger.service.ts
+
 import { Injectable } from '@nestjs/common';
 import pino from 'pino';
 
@@ -25,7 +25,7 @@ export class LoggerService {
     });
   }
 
-  // ===== MÉTODOS BÁSICOS DO LoggerService =====
+  
   log(message: any, context?: string) {
     this.logger.info({ context }, message);
   }
@@ -46,7 +46,7 @@ export class LoggerService {
     this.logger.trace({ context }, message);
   }
 
-  // ===== MÉTODOS ESTRUTURADOS (COM METADADOS) =====
+  
   infoWithMetadata(
     context: string,
     message: any,
@@ -79,7 +79,7 @@ export class LoggerService {
     this.logger.debug({ context, ...metadata }, message);
   }
 
-  // ===== MÉTODO PARA CRIAR LOGGER COM CONTEXTO =====
+  
   getLogger(context: string) {
     return {
       log: (message: any) => this.log(message, context),

@@ -1,4 +1,4 @@
-// src/app.module.ts
+
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,10 +7,10 @@ import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { EmailModule } from './email/email.module';
-import { LogsModule } from './logs/logs.module'; // ← Importar
+import { LogsModule } from './logs/logs.module'; 
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { User } from './users/entities/user.entity';
-import { AuditLog } from './logs/entities/audit-log.entity'; // ← Importar a entidade
+import { AuditLog } from './logs/entities/audit-log.entity'; 
 import { SessionsModule } from './sessions/sessions.module';
 import { PasswordHistory } from './users/entities/password-history.entity';
 import { Session } from './sessions/entities/session.entity';

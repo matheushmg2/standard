@@ -1,9 +1,9 @@
-// src/database/migrations/1788467035755-AddUserProfileFields.ts
+
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
 export class AddUserProfileFields1788467035755 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Documentos
+    
     await queryRunner.addColumn(
       'users',
       new TableColumn({
@@ -36,7 +36,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
       }),
     );
 
-    // Dados Pessoais
+    
     await queryRunner.addColumn(
       'users',
       new TableColumn({
@@ -86,7 +86,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
       }),
     );
 
-    // Endereço
+    
     await queryRunner.addColumn(
       'users',
       new TableColumn({
@@ -168,7 +168,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
       }),
     );
 
-    // Preferências - CORRIGIDO
+    
     await queryRunner.addColumn(
       'users',
       new TableColumn({
@@ -201,7 +201,7 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
       }),
     );
 
-    // Criar índices
+    
     await queryRunner.query(
       `CREATE INDEX "IDX_USER_CPF" ON "users" ("cpf") WHERE "cpf" IS NOT NULL;`,
     );
@@ -216,12 +216,12 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Remover índices
+    
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USER_CPF";`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USER_CNPJ";`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USER_PHONE";`);
 
-    // Remover colunas
+    
     const columns = [
       'timezone',
       'language',

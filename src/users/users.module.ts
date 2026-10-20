@@ -1,10 +1,10 @@
-// src/users/users.module.ts
+
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
-import { GeocodingModule } from '../geocoding/geocoding.module'; // ← Importar
+import { GeocodingModule } from '../geocoding/geocoding.module'; 
 
 @Module({
   imports: [

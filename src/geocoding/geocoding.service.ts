@@ -1,4 +1,4 @@
-// src/geocoding/geocoding.service.ts
+
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
@@ -8,12 +8,12 @@ export class GeocodingService {
   private readonly axiosInstance: AxiosInstance;
 
   constructor(private configService: ConfigService) {
-    // ===== CONFIGURAÇÃO DO AXIOS =====
+    
     this.axiosInstance = axios.create({
       baseURL: 'https://nominatim.openstreetmap.org',
       timeout: 10000, // 10 segundos
       headers: {
-        // 🔥 USER-AGENT INFORMATIVO (OBRIGATÓRIO)
+        
         'User-Agent':
           'StandardApp/1.0 (https://github.com/matheushmg2/standard; matheushmg2@gmail.com)',
         'Accept-Language': 'pt-BR,pt;q=0.9',
@@ -21,14 +21,14 @@ export class GeocodingService {
     });
   }
 
-  // ===== GEOCODIFICAR ENDEREÇO =====
+  
   async geocodeAddress(address: string) {
     if (!address || address.trim().length < 3) {
       throw new BadRequestException('Endereço inválido');
     }
 
     try {
-      // 🔥 DELAY DE 1 SEGUNDO (RESPEITANDO O LIMITE DE 1 REQUISIÇÃO/SEGUNDO)
+      
       await this.delay(1000);
 
       const response = await this.axiosInstance.get('/search', {
@@ -87,7 +87,7 @@ export class GeocodingService {
     }
   }
 
-  // ===== GEOCODIFICAR REVERSO (LAT/LNG → ENDEREÇO) =====
+  
   async reverseGeocode(lat: number, lng: number) {
     try {
       await this.delay(1000);
@@ -129,7 +129,7 @@ export class GeocodingService {
     }
   }
 
-  // ===== BUSCAR CIDADES POR NOME =====
+  
   async searchCities(query: string, limit: number = 5) {
     if (!query || query.length < 2) {
       return [];
@@ -168,7 +168,7 @@ export class GeocodingService {
     }
   }
 
-  // ===== UTILITÁRIO: DELAY =====
+  
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

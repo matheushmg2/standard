@@ -1,4 +1,4 @@
-// src/common/interceptors/audit.interceptor.ts
+
 import {
   Injectable,
   NestInterceptor,
@@ -22,7 +22,7 @@ export class AuditInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const handler = context.getHandler();
 
-    // Pular se não tiver ação definida
+    
     const action = this.reflector.get<AuditAction>('auditAction', handler);
 
     if (!action) {

@@ -1,4 +1,4 @@
-// src/users/users.service.ts
+
 import {
   Injectable,
   ConflictException,
@@ -24,11 +24,11 @@ export class UsersService {
     private geocodingService: GeocodingService, // ← Injetar
   ) {}
 
-  // ===== CRIAR USUÁRIO =====
+  
   async create(createUserDto: CreateUserDto) {
     const { email, password, address, ...rest } = createUserDto;
 
-    // 1. Verificar se email já existe
+    
     const existingUser = await this.userRepository.findOne({
       where: { email },
     });
@@ -37,19 +37,19 @@ export class UsersService {
       throw new ConflictException('Email já cadastrado');
     }
 
-    // 2. Geocodificar endereço (se fornecido)
+    
     let locationData: Awaited<ReturnType<GeocodingService['geocodeAddress']>> =
       null;
     if (address) {
       locationData = await this.geocodingService.geocodeAddress(address);
     }
 
-    // 3. Criar usuário
+    
     const user = this.userRepository.create({
       email,
       password,
       ...rest,
-      // Preencher dados de localização se disponíveis
+      
       ...(locationData && {
         city: locationData.city,
         state: locationData.state,
@@ -64,14 +64,14 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  // ===== BUSCAR TODOS =====
+  
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
       order: { createdAt: 'DESC' },
     });
   }
 
-  // ===== BUSCAR POR ID =====
+  
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
 
@@ -82,14 +82,14 @@ export class UsersService {
     return user;
   }
 
-  // ===== BUSCAR POR EMAIL =====
+  
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { email } });
   }
 
-  // ===== ATUALIZAR =====
+  
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id); // Reutiliza a validação
+    const user = await this.findOne(id); 
 
     const { address, ...profileData } = updateUserDto;
 
@@ -109,29 +109,29 @@ export class UsersService {
       }
     }
 
-    // Allowlist explícita: não permite password, role, status ou tokens.
+    
     Object.assign(user, profileData);
 
     return this.userRepository.save(user);
   }
 
-  // ===== REMOVER =====
+  
   async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
     return this.userRepository.remove(user);
   }
 
-  // ===== VERIFICAR SE USUÁRIO EXISTE =====
+  
   async exists(id: string): Promise<boolean> {
     return (await this.userRepository.count({ where: { id } })) > 0;
   }
 
-  // ===== BUSCAR POR CPF =====
+  
   async findByCpf(cpf: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { cpf } });
   }
 
-  // ===== BUSCAR POR CNPJ =====
+  
   async findByCnpj(cnpj: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { cnpj } });
   }

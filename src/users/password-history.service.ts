@@ -1,4 +1,4 @@
-// src/users/password-history.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,27 +8,27 @@ import { User } from './entities/user.entity';
 
 @Injectable()
 export class PasswordHistoryService {
-  private readonly MAX_HISTORY = 5; // Manter últimas 5 senhas
+  private readonly MAX_HISTORY = 5; 
 
   constructor(
     @InjectRepository(PasswordHistory)
     private passwordHistoryRepository: Repository<PasswordHistory>,
   ) {}
 
-  // ===== ADICIONAR SENHA AO HISTÓRICO =====
+  
   async addToHistory(user: User, passwordHash: string): Promise<void> {
-    // Adicionar nova senha
+    
     const history = this.passwordHistoryRepository.create({
       userId: user.id,
       passwordHash,
     });
     await this.passwordHistoryRepository.save(history);
 
-    // Manter apenas as últimas MAX_HISTORY senhas
+    
     await this.cleanOldHistory(user.id);
   }
 
-  // ===== VERIFICAR SE SENHA JÁ FOI USADA =====
+  
   async isPasswordReused(
     userId: string,
     newPassword: string,
@@ -49,7 +49,7 @@ export class PasswordHistoryService {
     return false;
   }
 
-  // ===== LIMPAR HISTÓRICO ANTIGO =====
+  
   private async cleanOldHistory(userId: string): Promise<void> {
     const history = await this.passwordHistoryRepository.find({
       where: { userId },

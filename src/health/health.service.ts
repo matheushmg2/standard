@@ -1,4 +1,4 @@
-// src/health/health.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';

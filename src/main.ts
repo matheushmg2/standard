@@ -1,4 +1,4 @@
-// src/main.ts
+
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
@@ -25,13 +25,13 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Helmet
+  
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: process.env.NODE_ENV === 'production',
     crossOriginEmbedderPolicy: false,
   });
 
-  // CORS
+  
   const frontendUrl =
     configService.get<string>('frontendUrl') || 'http://localhost:4000';
   await app.register(fastifyCors, {
@@ -41,7 +41,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   });
 
-  // Cookies
+  
   const secret = configService.get<string>('JWT_ACCESS_SECRET');
   if (!secret) {
     throw new Error('JWT_ACCESS_SECRET não está definido no arquivo .env');
@@ -56,7 +56,7 @@ async function bootstrap() {
     },
   });
 
-  // ===== SWAGGER =====
+  
   const config = new DocumentBuilder()
     .setTitle('Standard API')
     .setDescription('API completa de autenticação com 2FA, sessões e logs')
@@ -67,16 +67,16 @@ async function bootstrap() {
     .addTag('Logs', 'Logs de auditoria e atividades')
     .addBearerAuth()
     .addCookieAuth('access_token')
-    .addServer('http://localhost:4000/api', 'Servidor Local') // ← ADICIONAR ESTA LINHA
+    .addServer('http://localhost:4000/api', 'Servidor Local') 
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // ===== FILTRO GLOBAL DE EXCEÇÕES =====
+  
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // ===== PIPES DE VALIDAÇÃO =====
+  
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -85,13 +85,13 @@ async function bootstrap() {
     }),
   );
 
-  // ===== PREFIXO GLOBAL =====
+  
   app.setGlobalPrefix('api');
 
   const port = configService.get<number>('port') || 3000;
   await app.listen(port, '0.0.0.0');
 
-  // 🔥 SUBSTITUIR console.log
+  
   const logger = app.get(LoggerService);
   logger.infoWithMetadata(
     'Bootstrap',

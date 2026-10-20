@@ -1,4 +1,4 @@
-// src/users/dto/create-user.dto.ts
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
@@ -38,7 +38,7 @@ export class CreateUserDto {
   })
   password: string;
 
-  // Documentos
+  
   @ApiPropertyOptional({
     example: '12345678901',
     description: 'CPF (opcional)',
@@ -63,7 +63,7 @@ export class CreateUserDto {
   @IsString()
   rg?: string;
 
-  // Dados Pessoais
+  
   @ApiPropertyOptional({
     example: '1990-01-01',
     description: 'Data de nascimento',
@@ -99,7 +99,7 @@ export class CreateUserDto {
   @MaxLength(500)
   bio?: string;
 
-  // Endereço
+  
   @ApiPropertyOptional({
     example: 'Rua das Flores, 123',
     description: 'Endereço completo',
@@ -156,7 +156,7 @@ export class CreateUserDto {
   @IsString()
   country?: string;
 
-  // Preferências
+  
   @ApiPropertyOptional({ example: 'pt-BR', description: 'Idioma' })
   @IsOptional()
   @IsString()
@@ -172,7 +172,7 @@ export class CreateUserDto {
   @MaxLength(50)
   timezone?: string;
 
-  // Campos internos (não expostos na API)
+  
   isEmailVerified?: boolean;
   emailVerificationToken?: string;
   emailVerificationTokenExpires?: Date;

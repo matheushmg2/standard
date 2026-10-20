@@ -1,4 +1,4 @@
-// src/sessions/entities/session.entity.ts
+
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -24,8 +24,7 @@ export class Session {
   @Column({ unique: true })
   refreshToken: string;
 
-  /*@Column({ type: 'timestamp', nullable: true })
-  revokedAt?: Date;*/
+  
 
   @Column({ nullable: true })
   userAgent?: string;

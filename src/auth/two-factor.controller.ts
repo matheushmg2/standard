@@ -1,4 +1,4 @@
-// src/auth/two-factor.controller.ts
+
 import {
   Body,
   Controller,
@@ -35,7 +35,7 @@ export class TwoFactorController {
     private authService: AuthService,
   ) {}
 
-  // ===== GERAR QR CODE =====
+  
   @Get('generate')
   @ApiBearerAuth()
   @ApiCookieAuth()
@@ -56,7 +56,7 @@ export class TwoFactorController {
     return this.twoFactorService.generateTwoFactorSecret(req.user.userId);
   }
 
-  // ===== ATIVAR 2FA =====
+  
   @Post('enable')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
@@ -76,7 +76,7 @@ export class TwoFactorController {
     );
   }
 
-  // ===== DESATIVAR 2FA =====
+  
   @Post('disable')
   @ApiBearerAuth()
   @ApiCookieAuth()
@@ -95,7 +95,7 @@ export class TwoFactorController {
     );
   }
 
-  // ===== STATUS DO 2FA =====
+  
   @Get('status')
   @ApiBearerAuth()
   @ApiCookieAuth()
@@ -114,7 +114,7 @@ export class TwoFactorController {
     return this.twoFactorService.getTwoFactorStatus(req.user.userId);
   }
 
-  // ===== REGENERAR BACKUP CODES =====
+  
   @Post('regenerate-backup-codes')
   @ApiBearerAuth()
   @ApiCookieAuth()
@@ -132,7 +132,7 @@ export class TwoFactorController {
     );
   }
 
-  // ===== LOGIN COM 2FA =====
+  
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)

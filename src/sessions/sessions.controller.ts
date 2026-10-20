@@ -1,4 +1,4 @@
-// src/sessions/sessions.controller.ts
+
 import {
   Controller,
   Get,
@@ -24,7 +24,7 @@ import {
 export class SessionsController {
   constructor(private sessionsService: SessionsService) {}
 
-  // ===== LISTAR SESSÕES =====
+  
   @Get()
   @ApiOperation({ summary: 'Listar todas as sessões ativas do usuário' })
   @ApiResponse({
@@ -48,7 +48,7 @@ export class SessionsController {
       req.user.userId,
     );
 
-    // Marcar a sessão atual
+    
     const currentSessionId = req.sessionId;
     return sessions.map((session) => ({
       ...session,
@@ -56,7 +56,7 @@ export class SessionsController {
     }));
   }
 
-  // ===== ENCERRAR SESSÃO ESPECÍFICA =====
+  
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Encerrar uma sessão específica' })
@@ -66,7 +66,7 @@ export class SessionsController {
     await this.sessionsService.revokeSession(id, req.user.userId);
   }
 
-  // ===== ENCERRAR TODAS AS SESSÕES (EXCETO A ATUAL) =====
+  
   @Delete('others')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Encerrar todas as sessões, exceto a atual' })
@@ -79,7 +79,7 @@ export class SessionsController {
     return { message: `${count} sessões encerradas` };
   }
 
-  // ===== ENCERRAR TODAS AS SESSÕES =====
+  
   @Delete('all')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Encerrar todas as sessões' })

@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
 export class AddTwoFactorFields1788470401463 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Adicionar coluna twoFactorSecret
+    
     await queryRunner.addColumn(
       'users',
       new TableColumn({
@@ -13,7 +13,7 @@ export class AddTwoFactorFields1788470401463 implements MigrationInterface {
       }),
     );
 
-    // Adicionar coluna twoFactorEnabled
+    
     await queryRunner.addColumn(
       'users',
       new TableColumn({
@@ -24,7 +24,7 @@ export class AddTwoFactorFields1788470401463 implements MigrationInterface {
       }),
     );
 
-    // Adicionar coluna twoFactorBackupCodes como jsonb
+    
     await queryRunner.addColumn(
       'users',
       new TableColumn({

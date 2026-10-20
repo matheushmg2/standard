@@ -1,4 +1,4 @@
-// src/email/email.controller.ts (criar se não existir)
+
 import { Controller, Get, Post, Body } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { Public } from '../auth/decorators/public.decorator';

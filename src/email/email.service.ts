@@ -1,4 +1,4 @@
-// src/email/email.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
@@ -21,7 +21,7 @@ export class EmailService {
     const user = this.configService.get('SMTP_USER');
     const pass = this.configService.get('SMTP_PASS');
 
-    // Se não tiver credenciais configuradas, usar Ethereal
+    
     if (!host || !user || !pass || pass === 'sua-senha-app') {
       this.logger.warnWithMetadata(
         'EmailService',
@@ -53,7 +53,7 @@ export class EmailService {
       return;
     }
 
-    // Configuração do Gmail/SMTP
+    
     this.transporter = nodemailer.createTransport({
       host: host,
       port: parseInt(this.configService.get('SMTP_PORT') || '587'),
@@ -97,7 +97,7 @@ export class EmailService {
     }
   }
 
-  // ===== ENVIAR EMAIL DE VERIFICAÇÃO =====
+  
   async sendVerificationEmail(email: string, name: string, token: string) {
     const frontendUrl =
       this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
@@ -156,7 +156,7 @@ export class EmailService {
       html,
     });
 
-    // 🔥 LOG DE SUCESSO
+    
     this.logger.infoWithMetadata(
       'EmailService',
       `Email de verificação enviado para ${email}`,
@@ -169,7 +169,7 @@ export class EmailService {
     );
   }
 
-  // ===== ENVIAR EMAIL DE RECUPERAÇÃO DE SENHA =====
+  
   async sendPasswordResetEmail(email: string, name: string, token: string) {
     const frontendUrl =
       this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
@@ -228,7 +228,7 @@ export class EmailService {
       html,
     });
 
-    // 🔥 LOG DE SUCESSO
+    
     this.logger.infoWithMetadata(
       'EmailService',
       `Email de recuperação enviado para ${email}`,
@@ -241,7 +241,7 @@ export class EmailService {
     );
   }
 
-  // ===== ENVIAR EMAIL DE NOVO LOGIN =====
+  
   async sendNewLoginEmail(
     email: string,
     name: string,
@@ -291,7 +291,7 @@ export class EmailService {
       html,
     });
 
-    // 🔥 LOG DE SUCESSO
+    
     this.logger.infoWithMetadata(
       'EmailService',
       `Email de novo login enviado para ${email}`,
@@ -306,7 +306,7 @@ export class EmailService {
     );
   }
 
-  // ===== MÉTODO BASE PARA ENVIAR EMAIL =====
+  
   private async sendEmail(options: {
     to: string;
     subject: string;
@@ -324,7 +324,7 @@ export class EmailService {
         text: options.text || this.htmlToText(options.html),
       });
 
-      // 🔥 LOG DE SUCESSO NO ENVIO
+      
       this.logger.infoWithMetadata(
         'EmailService',
         `Email enviado com sucesso para ${options.to}`,
@@ -337,7 +337,7 @@ export class EmailService {
 
       return result;
     } catch (error: any) {
-      // 🔥 LOG DE ERRO NO ENVIO
+      
       this.logger.errorWithMetadata(
         'EmailService',
         `Erro ao enviar email para ${options.to}`,
@@ -349,7 +349,7 @@ export class EmailService {
         },
       );
 
-      // Fallback: log do email
+      
       this.logger.warnWithMetadata(
         'EmailService',
         'Fallback: Conteúdo do email (não enviado)',
@@ -364,7 +364,7 @@ export class EmailService {
     }
   }
 
-  // ===== UTILITÁRIO: Converter HTML para Texto =====
+  
   private htmlToText(html: string): string {
     return html
       .replace(/<[^>]*>/g, '')
@@ -372,7 +372,7 @@ export class EmailService {
       .trim();
   }
 
-  // ===== TESTE DE CONEXÃO =====
+  
   async testConnection() {
     try {
       await this.transporter.verify();

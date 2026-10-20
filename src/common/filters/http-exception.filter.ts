@@ -1,4 +1,4 @@
-// src/common/filters/http-exception.filter.ts
+
 import {
   ExceptionFilter,
   Catch,
@@ -19,24 +19,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let message = 'Erro interno do servidor';
     let errors: any = null;
 
-    // ===== TRATAR ERROS DO TYPEORM =====
+    
     if (exception instanceof QueryFailedError) {
       const driverError = (exception as any).driverError;
 
       if (driverError?.code === '22001') {
-        // value too long
+        
         status = HttpStatus.BAD_REQUEST;
         message = 'Valor muito longo para o campo';
         errors = this.extractFieldError(exception);
       } else if (driverError?.code === '23505') {
-        // duplicate key
+        
         status = HttpStatus.CONFLICT;
         message = 'Registro duplicado';
         errors = this.extractDuplicateError(exception);
       }
     }
 
-    // ===== TRATAR ERROS DO CLASS-VALIDATOR =====
+    
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
       status = exception.getStatus();
@@ -47,7 +47,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     }
 
-    // ===== LOG DO ERRO =====
+    
     console.error('❌ Erro capturado:', {
       status,
       message,
@@ -56,7 +56,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       stack: exception instanceof Error ? exception.stack : undefined,
     });
 
-    // ===== RESPOSTA FORMATADA =====
+    
     response.status(status).send({
       statusCode: status,
       message,
