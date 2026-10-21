@@ -4,13 +4,14 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+  HttpStatus, Logger } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
 import { QueryFailedError } from 'typeorm';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+    private readonly logger: Logger = new Logger(GlobalExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<FastifyReply>();
@@ -48,7 +49,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     
-    console.error('❌ Erro capturado:', {
+    this.logger.error('❌ Erro capturado:', {
       status,
       message,
       errors,

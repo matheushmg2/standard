@@ -1,11 +1,13 @@
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class HealthService {
+    private readonly logger: Logger = new Logger(HealthService.name);
+
   constructor(
     @InjectDataSource()
     private dataSource: DataSource,
@@ -55,7 +57,7 @@ export class HealthService {
       await this.dataSource.query('SELECT 1');
       return true;
     } catch (error: any) {
-      console.error('Database health check failed:', error.message);
+      this.logger.error('Database health check failed:', error.message);
       return false;
     }
   }
@@ -65,7 +67,7 @@ export class HealthService {
       await this.redisService.get('health:test');
       return true;
     } catch (error: any) {
-      console.error('Redis health check failed:', error.message);
+      this.logger.error('Redis health check failed:', error.message);
       return false;
     }
   }

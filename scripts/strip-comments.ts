@@ -1,153 +1,341 @@
-import * as ts from 'typescript';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as ts from "typescript";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 interface Options {
   keepJSDoc: boolean;
   keepBlock: boolean;
   dryRun: boolean;
+  check: boolean;
+  format: boolean;
+  formatAll: boolean;
 }
 
-/**
- * Coleta TODOS os comentários do arquivo, incluindo:
- * - leading/trailing de nós (statements, declarações)
- * - comentários "soltos" entre tokens (inline em arrays, objetos, args)
- * - comentários órfãos no final do arquivo
- *
- * Estratégia:
- * 1) forEachChild + leading/trailing (rápido, cobre 90%)
- * 2) Varredura bruta posição-a-posição (garante 100%, custo O(n²) aceitável)
- * 3) Fim do arquivo (órfãos)
- */
-function collectAllComments(source: string, sourceFile: ts.SourceFile): ts.CommentRange[] {
-  const seen = new Set<string>();
-  const comments: ts.CommentRange[] = [];
+interface CommentInfo {
+  pos: number;
+  end: number;
+  kind: ts.SyntaxKind;
+  text: string;
+}
 
-  const addRanges = (ranges: ts.CommentRange[] | undefined) => {
-    if (!ranges) return;
-    for (const r of ranges) {
-      const key = `${r.pos}-${r.end}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        comments.push(r);
-      }
-    }
-  };
+const IGNORED_DIRECTORIES = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  ".next",
+  "out",
+]);
 
-  // 1) Comentários leading/trailing de cada nó
-  const visitNode = (node: ts.Node) => {
-    addRanges(ts.getLeadingCommentRanges(source, node.getFullStart()));
-    addRanges(ts.getTrailingCommentRanges(source, node.getEnd()));
-    ts.forEachChild(node, visitNode);
-  };
-  visitNode(sourceFile);
+const PRESERVED_PATTERNS = [
+  /@ts-(?:ignore|expect-error|nocheck|check)\b/i,
+  /eslint-(?:disable|enable|no-)/i,
+  /eslint-env\b/i,
+  /eslint\b.*(?:global|globals)/i,
+  /tslint:/i,
+  /prettier-ignore\b/i,
+  /prettier\b.*(?:disable|enable)/i,
+  /istanbul\s+ignore/i,
+  /c8\s+ignore/i,
+  /v8\s+ignore/i,
+  /@__PURE__/,
+  /@__NO_SIDE_EFFECTS__/,
+  /@license\b/i,
+  /@preserve\b/i,
+  /SPDX-License-Identifier/i,
+  /copyright/i,
+  /all rights reserved/i,
+  /sourceMappingURL=/i,
+  /webpack[A-Z-]/i,
+  /vite-ignore/i,
+  /#__PURE__/,
+];
 
-  // 2) Comentários órfãos no final
-  addRanges(ts.getLeadingCommentRanges(source, source.length));
-
-  // 3) SCANNER: varre token por token e pega comentários que o forEachChild não vê.
-  //    O scanner SABE quando está dentro de string/template/regex, então não confunde
-  //    'http://...' com comentário.
-  const scanner = ts.createScanner(
-    ts.ScriptTarget.Latest,
-    /* skipTrivia */ false,
-    ts.LanguageVariant.Standard,
-    source,
+function isCommentKind(kind: ts.SyntaxKind): boolean {
+  return (
+    kind === ts.SyntaxKind.SingleLineCommentTrivia ||
+    kind === ts.SyntaxKind.MultiLineCommentTrivia
   );
-
-  let token = scanner.scan();
-  while (token !== ts.SyntaxKind.EndOfFileToken) {
-    const tokenPos = scanner.getTokenPos();
-    addRanges(ts.getLeadingCommentRanges(source, tokenPos));
-    token = scanner.scan();
-  }
-
-  return comments;
 }
 
-function stripComments(file: string, options: Options): { removed: number; content: string } {
-  const source = fs.readFileSync(file, 'utf8');
+function collectAllComments(source: string, file: string): CommentInfo[] {
+  const scriptKind = file.endsWith(".tsx")
+    ? ts.ScriptKind.TSX
+    : ts.ScriptKind.TS;
+
   const sourceFile = ts.createSourceFile(
     file,
     source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TS,
+    scriptKind,
   );
 
-  const allComments = collectAllComments(source, sourceFile);
+  const comments = new Map<string, CommentInfo>();
 
-  // Filtra por tipo
-  const toRemove = allComments.filter((c) => {
-    if (c.kind === ts.SyntaxKind.SingleLineCommentTrivia) return true;
-    if (c.kind === ts.SyntaxKind.MultiLineCommentTrivia) {
-      if (options.keepBlock) return false;
-      if (options.keepJSDoc) {
-        const text = source.slice(c.pos, c.end);
-        if (text.startsWith('/**')) return false; // preserva JSDoc
+  function addRanges(ranges: readonly ts.CommentRange[] | undefined): void {
+    if (!ranges) return;
+
+    for (const range of ranges) {
+      if (!isCommentKind(range.kind)) continue;
+
+      const key = `${range.pos}-${range.end}`;
+
+      if (!comments.has(key)) {
+        comments.set(key, {
+          pos: range.pos,
+          end: range.end,
+          kind: range.kind,
+          text: source.slice(range.pos, range.end),
+        });
       }
-      return true;
     }
-    return false;
+  }
+
+  function visit(node: ts.Node): void {
+    addRanges(ts.getLeadingCommentRanges(source, node.getFullStart()));
+
+    addRanges(ts.getTrailingCommentRanges(source, node.getEnd()));
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+
+  addRanges(ts.getLeadingCommentRanges(source, source.length));
+
+  return [...comments.values()].sort((a, b) => a.pos - b.pos);
+}
+
+function shouldPreserveComment(
+  comment: CommentInfo,
+  options: Options,
+): boolean {
+  const { kind, text } = comment;
+
+  if (
+    kind === ts.SyntaxKind.SingleLineCommentTrivia &&
+    /^\/\/\/\s*<(?:reference|amd-module|amd-dependency)\b/i.test(text)
+  ) {
+    return true;
+  }
+
+  if (
+    options.keepJSDoc &&
+    kind === ts.SyntaxKind.MultiLineCommentTrivia &&
+    text.startsWith("/**")
+  ) {
+    return true;
+  }
+
+  if (options.keepBlock && kind === ts.SyntaxKind.MultiLineCommentTrivia) {
+    return true;
+  }
+
+  if (PRESERVED_PATTERNS.some((pattern) => pattern.test(text))) {
+    return true;
+  }
+
+  return false;
+}
+
+function removeComments(
+  source: string,
+  comments: CommentInfo[],
+  options: Options,
+): { content: string; removed: number } {
+  const toRemove = comments.filter(
+    (comment) => !shouldPreserveComment(comment, options),
+  );
+
+  let content = source;
+
+  for (const comment of [...toRemove].sort((a, b) => b.pos - a.pos)) {
+    const original = content.slice(comment.pos, comment.end);
+
+    const replacement = original.replace(/[^\r\n]/g, " ");
+
+    content =
+      content.slice(0, comment.pos) + replacement + content.slice(comment.end);
+  }
+
+  return {
+    content,
+    removed: toRemove.length,
+  };
+}
+
+async function formatWithPrettier(
+  content: string,
+  file: string,
+): Promise<string> {
+  const prettier = await import("prettier");
+
+  return prettier.format(content, {
+    filepath: file,
+    parser: "typescript",
   });
+}
 
-  // Remove de trás pra frente (não invalida posições)
-  let result = source;
-  toRemove
-    .sort((a, b) => b.pos - a.pos)
-    .forEach((c) => {
-      result = result.slice(0, c.pos) + result.slice(c.end);
-    });
+async function processFile(
+  file: string,
+  options: Options,
+): Promise<{ removed: number; changed: boolean }> {
+  const source = fs.readFileSync(file, "utf8");
+  const comments = collectAllComments(source, file);
 
-  // Limpa linhas em branco duplicadas deixadas pela remoção
-  result = result.replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
+  const { content: cleaned, removed } = removeComments(
+    source,
+    comments,
+    options,
+  );
 
-  return { removed: toRemove.length, content: result };
+  if (options.check) {
+    if (removed > 0) {
+      console.error(`✗ ${file}: ${removed} comentário(s) removível(is).`);
+    }
+
+    return { removed, changed: removed > 0 };
+  }
+
+  if (options.dryRun) {
+    console.log(
+      `[dry-run] ${file}: ${removed} comentário(s) seriam removidos.`,
+    );
+
+    return { removed, changed: false };
+  }
+
+  let result = cleaned;
+
+  const shouldFormat = options.format && (options.formatAll || removed > 0);
+
+  if (shouldFormat) {
+    try {
+      result = await formatWithPrettier(result, file);
+    } catch (error) {
+      throw new Error(
+        `Prettier falhou em ${file}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  const changed = result !== source;
+
+  if (changed) {
+    fs.writeFileSync(file, result, "utf8");
+
+    console.log(`✓ ${file}: ${removed} comentário(s) removível(is).`);
+  }
+
+  return { removed, changed };
 }
 
 function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(full));
-    else if (entry.isFile() && full.endsWith('.ts')) out.push(full);
+  const files: string[] = [];
+
+  for (const entry of fs.readdirSync(dir, {
+    withFileTypes: true,
+  })) {
+    if (entry.isDirectory() && IGNORED_DIRECTORIES.has(entry.name)) {
+      continue;
+    }
+
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...walk(fullPath));
+    } else if (entry.isFile() && /\.(?:ts|tsx)$/.test(entry.name)) {
+      files.push(fullPath);
+    }
   }
-  return out;
+
+  return files;
 }
 
-// ===== CLI =====
-const args = process.argv.slice(2);
-const flags = args.filter((a) => a.startsWith('--'));
-const targets = args.filter((a) => !a.startsWith('--'));
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const flags = args.filter((arg) => arg.startsWith("--"));
+  const targets = args.filter((arg) => !arg.startsWith("--"));
 
-const options: Options = {
-  keepJSDoc: !flags.includes('--no-jsdoc'),   // padrão: preserva JSDoc
-  keepBlock: flags.includes('--keep-block'),  // padrão: remove /* */
-  dryRun: flags.includes('--dry-run'),
-};
+  const options: Options = {
+    keepJSDoc: true,
+    keepBlock: flags.includes("--keep-block"),
+    dryRun: flags.includes("--dry-run"),
+    check: flags.includes("--check"),
+    format: !flags.includes("--no-format"),
+    formatAll: flags.includes("--format-all"),
+  };
 
-if (targets.length === 0) {
-  console.error('Uso: ts-node scripts/strip-comments.ts <arquivo|pasta> [--dry-run] [--no-jsdoc] [--keep-block]');
-  process.exit(1);
-}
+  if (options.check && options.dryRun) {
+    throw new Error("Use --check ou --dry-run, não os dois juntos.");
+  }
 
-const files: string[] = [];
-for (const t of targets) {
-  if (fs.statSync(t).isDirectory()) files.push(...walk(t));
-  else files.push(t);
-}
+  if (targets.length === 0) {
+    throw new Error(
+      "Uso: tsx scripts/strip-comments.ts <arquivo|pasta> " +
+        "[--check] [--dry-run] [--keep-block] " +
+        "[--no-format] [--format-all]",
+    );
+  }
 
-let totalRemoved = 0;
-for (const file of files) {
-  const { removed, content } = stripComments(file, options);
-  totalRemoved += removed;
+  const files: string[] = [];
 
-  if (options.dryRun) {
-    console.log(`[dry-run] ${file}: ${removed} comentário(s) seriam removidos`);
-  } else if (removed > 0) {
-    fs.writeFileSync(file, content, 'utf8');
-    console.log(`✓ ${file}: ${removed} comentário(s) removido(s)`);
+  for (const target of targets) {
+    const resolved = path.resolve(target);
+
+    if (!fs.existsSync(resolved)) {
+      throw new Error(`Caminho não encontrado: ${target}`);
+    }
+
+    const stat = fs.statSync(resolved);
+
+    if (stat.isDirectory()) {
+      files.push(...walk(resolved));
+    } else if (stat.isFile()) {
+      files.push(resolved);
+    }
+  }
+
+  const uniqueFiles = [...new Set(files)];
+
+  let totalRemoved = 0;
+  let filesChanged = 0;
+  let hasViolations = false;
+
+  for (const file of uniqueFiles) {
+    const result = await processFile(file, options);
+
+    totalRemoved += result.removed;
+
+    if (result.changed && !options.check) {
+      filesChanged++;
+    }
+
+    if (options.check && result.changed) {
+      hasViolations = true;
+    }
+  }
+
+  console.log(
+    `\nTotal: ${totalRemoved} comentário(s) removível(is) ` +
+      `em ${uniqueFiles.length} arquivo(s).`,
+  );
+
+  if (!options.check) {
+    console.log(`Arquivos alterados: ${filesChanged}.`);
+  }
+
+  if (hasViolations) {
+    process.exitCode = 1;
   }
 }
 
-console.log(`\nTotal: ${totalRemoved} comentário(s) em ${files.length} arquivo(s).`);
+main().catch((error: unknown) => {
+  console.error("Erro:", error instanceof Error ? error.message : error);
+
+  process.exitCode = 1;
+});

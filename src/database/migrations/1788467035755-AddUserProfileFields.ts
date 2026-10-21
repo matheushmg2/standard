@@ -1,207 +1,201 @@
-
-import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
+import { MigrationInterface, QueryRunner, TableColumn } from "typeorm";
 
 export class AddUserProfileFields1788467035755 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'cpf',
-        type: 'varchar',
-        length: '14',
+        name: "cpf",
+        type: "varchar",
+        length: "14",
         isNullable: true,
         isUnique: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'cnpj',
-        type: 'varchar',
-        length: '18',
+        name: "cnpj",
+        type: "varchar",
+        length: "18",
         isNullable: true,
         isUnique: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'rg',
-        type: 'varchar',
-        length: '13',
-        isNullable: true,
-      }),
-    );
-
-    
-    await queryRunner.addColumn(
-      'users',
-      new TableColumn({
-        name: 'birthDate',
-        type: 'date',
+        name: "rg",
+        type: "varchar",
+        length: "13",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'phone',
-        type: 'varchar',
-        length: '20',
+        name: "birthDate",
+        type: "date",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'whatsapp',
-        type: 'varchar',
-        length: '20',
+        name: "phone",
+        type: "varchar",
+        length: "20",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'avatarUrl',
-        type: 'varchar',
-        length: '255',
+        name: "whatsapp",
+        type: "varchar",
+        length: "20",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'bio',
-        type: 'varchar',
-        length: '500',
-        isNullable: true,
-      }),
-    );
-
-    
-    await queryRunner.addColumn(
-      'users',
-      new TableColumn({
-        name: 'zipCode',
-        type: 'varchar',
-        length: '10',
+        name: "avatarUrl",
+        type: "varchar",
+        length: "255",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'street',
-        type: 'varchar',
-        length: '255',
+        name: "bio",
+        type: "varchar",
+        length: "500",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'number',
-        type: 'varchar',
-        length: '10',
+        name: "zipCode",
+        type: "varchar",
+        length: "10",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'complement',
-        type: 'varchar',
-        length: '100',
+        name: "street",
+        type: "varchar",
+        length: "255",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'neighborhood',
-        type: 'varchar',
-        length: '100',
+        name: "number",
+        type: "varchar",
+        length: "10",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'city',
-        type: 'varchar',
-        length: '100',
+        name: "complement",
+        type: "varchar",
+        length: "100",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'state',
-        type: 'varchar',
-        length: '2',
+        name: "neighborhood",
+        type: "varchar",
+        length: "100",
         isNullable: true,
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'country',
-        type: 'varchar',
-        length: '50',
+        name: "city",
+        type: "varchar",
+        length: "100",
         isNullable: true,
-        default: "'Brasil'", // ← CORRIGIDO: aspas simples
-      }),
-    );
-
-    
-    await queryRunner.addColumn(
-      'users',
-      new TableColumn({
-        name: 'preferences',
-        type: 'jsonb',
-        isNullable: true,
-        default: "'{}'", // ← CORRIGIDO: '{}' com aspas simples
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'language',
-        type: 'varchar',
-        length: '10',
+        name: "state",
+        type: "varchar",
+        length: "2",
+        isNullable: true,
+      }),
+    );
+
+    await queryRunner.addColumn(
+      "users",
+      new TableColumn({
+        name: "country",
+        type: "varchar",
+        length: "50",
+        isNullable: true,
+        default: "'Brasil'",
+      }),
+    );
+
+    await queryRunner.addColumn(
+      "users",
+      new TableColumn({
+        name: "preferences",
+        type: "jsonb",
+        isNullable: true,
+        default: "'{}'",
+      }),
+    );
+
+    await queryRunner.addColumn(
+      "users",
+      new TableColumn({
+        name: "language",
+        type: "varchar",
+        length: "10",
         isNullable: true,
         default: "'pt-BR'",
       }),
     );
 
     await queryRunner.addColumn(
-      'users',
+      "users",
       new TableColumn({
-        name: 'timezone',
-        type: 'varchar',
-        length: '50',
+        name: "timezone",
+        type: "varchar",
+        length: "50",
         isNullable: true,
         default: "'America/Sao_Paulo'",
       }),
     );
 
-    
     await queryRunner.query(
       `CREATE INDEX "IDX_USER_CPF" ON "users" ("cpf") WHERE "cpf" IS NOT NULL;`,
     );
@@ -216,36 +210,34 @@ export class AddUserProfileFields1788467035755 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USER_CPF";`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USER_CNPJ";`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_USER_PHONE";`);
 
-    
     const columns = [
-      'timezone',
-      'language',
-      'preferences',
-      'country',
-      'state',
-      'city',
-      'neighborhood',
-      'complement',
-      'number',
-      'street',
-      'zipCode',
-      'bio',
-      'avatarUrl',
-      'whatsapp',
-      'phone',
-      'birthDate',
-      'rg',
-      'cnpj',
-      'cpf',
+      "timezone",
+      "language",
+      "preferences",
+      "country",
+      "state",
+      "city",
+      "neighborhood",
+      "complement",
+      "number",
+      "street",
+      "zipCode",
+      "bio",
+      "avatarUrl",
+      "whatsapp",
+      "phone",
+      "birthDate",
+      "rg",
+      "cnpj",
+      "cpf",
     ];
 
     for (const column of columns) {
-      await queryRunner.dropColumn('users', column);
+      await queryRunner.dropColumn("users", column);
     }
   }
 }

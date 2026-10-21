@@ -1,43 +1,39 @@
-
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import axios, { AxiosInstance } from 'axios';
+import { Injectable, BadRequestException, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import axios, { AxiosInstance } from "axios";
 
 @Injectable()
 export class GeocodingService {
+    private readonly logger: Logger = new Logger(GeocodingService.name);
   private readonly axiosInstance: AxiosInstance;
 
   constructor(private configService: ConfigService) {
-    
     this.axiosInstance = axios.create({
-      baseURL: 'https://nominatim.openstreetmap.org',
-      timeout: 10000, // 10 segundos
+      baseURL: "https://nominatim.openstreetmap.org",
+      timeout: 10000,
       headers: {
-        
-        'User-Agent':
-          'StandardApp/1.0 (https://github.com/matheushmg2/standard; matheushmg2@gmail.com)',
-        'Accept-Language': 'pt-BR,pt;q=0.9',
+        "User-Agent":
+          "StandardApp/1.0 (https://github.com/matheushmg2/standard; matheushmg2@gmail.com)",
+        "Accept-Language": "pt-BR,pt;q=0.9",
       },
     });
   }
 
-  
   async geocodeAddress(address: string) {
     if (!address || address.trim().length < 3) {
-      throw new BadRequestException('Endereço inválido');
+      throw new BadRequestException("Endereço inválido");
     }
 
     try {
-      
       await this.delay(1000);
 
-      const response = await this.axiosInstance.get('/search', {
+      const response = await this.axiosInstance.get("/search", {
         params: {
           q: address,
-          format: 'json',
+          format: "json",
           addressdetails: 1,
           limit: 1,
-          'accept-language': 'pt-BR',
+          "accept-language": "pt-BR",
         },
       });
 
@@ -70,35 +66,34 @@ export class GeocodingService {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 429) {
           throw new BadRequestException(
-            'Limite de requisições excedido. Tente novamente em alguns minutos.',
+            "Limite de requisições excedido. Tente novamente em alguns minutos.",
           );
         }
         if (error.response?.status === 403) {
           throw new BadRequestException(
-            'Acesso negado ao serviço de geocodificação. Verifique o User-Agent.',
+            "Acesso negado ao serviço de geocodificação. Verifique o User-Agent.",
           );
         }
-        console.error('Erro ao geocodificar endereço:', error.message);
+        this.logger.error("Erro ao geocodificar endereço:", error.message);
         throw new BadRequestException(
-          'Erro ao processar o endereço. Tente novamente.',
+          "Erro ao processar o endereço. Tente novamente.",
         );
       }
       throw error;
     }
   }
 
-  
   async reverseGeocode(lat: number, lng: number) {
     try {
       await this.delay(1000);
 
-      const response = await this.axiosInstance.get('/reverse', {
+      const response = await this.axiosInstance.get("/reverse", {
         params: {
           lat,
           lon: lng,
-          format: 'json',
+          format: "json",
           addressdetails: 1,
-          'accept-language': 'pt-BR',
+          "accept-language": "pt-BR",
         },
       });
 
@@ -124,12 +119,11 @@ export class GeocodingService {
         neighborhood: address.neighbourhood || address.suburb,
       };
     } catch (error: any) {
-      console.error('Erro no geocoding reverso:', error.message);
+      this.logger.error("Erro no geocoding reverso:", error.message);
       return null;
     }
   }
 
-  
   async searchCities(query: string, limit: number = 5) {
     if (!query || query.length < 2) {
       return [];
@@ -138,15 +132,15 @@ export class GeocodingService {
     try {
       await this.delay(1000);
 
-      const response = await this.axiosInstance.get('/search', {
+      const response = await this.axiosInstance.get("/search", {
         params: {
           q: query,
-          format: 'json',
+          format: "json",
           addressdetails: 1,
           limit,
-          'accept-language': 'pt-BR',
-          featuretype: 'city',
-          class: 'boundary',
+          "accept-language": "pt-BR",
+          featuretype: "city",
+          class: "boundary",
         },
       });
 
@@ -163,12 +157,11 @@ export class GeocodingService {
         lon: parseFloat(item.lon),
       }));
     } catch (error: any) {
-      console.error('Erro ao buscar cidades:', error.message);
+      this.logger.error("Erro ao buscar cidades:", error.message);
       return [];
     }
   }
 
-  
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

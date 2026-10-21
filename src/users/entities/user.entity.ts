@@ -167,11 +167,6 @@ export class User {
   }
 
   async comparePassword(plainPassword: string): Promise<boolean> {
-    
-    console.log('Comparando senha:', {
-      plain: plainPassword,
-      hash: this.password.substring(0, 20) + '...',
-    });
     return bcrypt.compare(plainPassword, this.password);
   }
 
