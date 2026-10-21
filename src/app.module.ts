@@ -1,23 +1,22 @@
-
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_GUARD } from '@nestjs/core';
-import configuration from './config/configuration';
-import { AuthModule } from './auth/auth.module';
-import { RedisModule } from './redis/redis.module';
-import { EmailModule } from './email/email.module';
-import { LogsModule } from './logs/logs.module'; 
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
-import { User } from './users/entities/user.entity';
-import { AuditLog } from './logs/entities/audit-log.entity'; 
-import { SessionsModule } from './sessions/sessions.module';
-import { PasswordHistory } from './users/entities/password-history.entity';
-import { Session } from './sessions/entities/session.entity';
-import { HealthModule } from './health/health.module';
-import { LoggerModule } from './logger/logger.module';
-import { UsersModule } from './users/users.module';
-import { GeocodingModule } from './geocoding/geocoding.module';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { APP_GUARD } from "@nestjs/core";
+import configuration from "./config/configuration";
+import { AuthModule } from "./auth/auth.module";
+import { RedisModule } from "./redis/redis.module";
+import { EmailModule } from "./email/email.module";
+import { LogsModule } from "./logs/logs.module";
+import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
+import { User } from "./users/entities/user.entity";
+import { AuditLog } from "./logs/entities/audit-log.entity";
+import { SessionsModule } from "./sessions/sessions.module";
+import { PasswordHistory } from "./users/entities/password-history.entity";
+import { Session } from "./sessions/entities/session.entity";
+import { HealthModule } from "./health/health.module";
+import { LoggerModule } from "./logger/logger.module";
+import { UsersModule } from "./users/users.module";
+import { GeocodingModule } from "./geocoding/geocoding.module";
 
 @Module({
   imports: [
@@ -28,17 +27,17 @@ import { GeocodingModule } from './geocoding/geocoding.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('database.host'),
-        port: configService.get('database.port'),
-        username: configService.get('database.username'),
-        password: configService.get('database.password'),
-        database: configService.get('database.database'),
-        entities: [User, AuditLog, Session, PasswordHistory], // ← Adicionar AuditLog aqui TAMBÉM!
+        type: "postgres",
+        host: configService.get("database.host"),
+        port: configService.get("database.port"),
+        username: configService.get("database.username"),
+        password: configService.get("database.password"),
+        database: configService.get("database.database"),
+        entities: [User, AuditLog, Session, PasswordHistory],
         synchronize: false,
-        migrations: ['dist/database/migrations/*{.ts,.js}'],
-        migrationsTableName: 'migrations',
-        logging: process.env.NODE_ENV === 'development',
+        migrations: ["dist/database/migrations/*{.ts,.js}"],
+        migrationsTableName: "migrations",
+        logging: process.env.NODE_ENV === "development",
       }),
       inject: [ConfigService],
     }),

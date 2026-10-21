@@ -755,7 +755,7 @@ export class AuthService {
     ip?: string,
     userAgent?: string,
   ) {
-    console.log(
+    this.logger.log(
       `[AUTH] ${event} - User: ${userId} - IP: ${ip || 'N/A'} - UA: ${userAgent || 'N/A'}`,
     );
   }

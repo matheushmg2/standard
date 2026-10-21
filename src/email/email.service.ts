@@ -1,9 +1,8 @@
-
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import { createTestAccount } from 'nodemailer';
-import { LoggerService } from '../logger/logger.service';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as nodemailer from "nodemailer";
+import { createTestAccount } from "nodemailer";
+import { LoggerService } from "../logger/logger.service";
 
 @Injectable()
 export class EmailService {
@@ -11,21 +10,20 @@ export class EmailService {
 
   constructor(
     private configService: ConfigService,
-    private logger: LoggerService, // ← INJETAR AQUI
+    private logger: LoggerService,
   ) {
     this.initTransporter();
   }
 
   private async initTransporter() {
-    const host = this.configService.get('SMTP_HOST');
-    const user = this.configService.get('SMTP_USER');
-    const pass = this.configService.get('SMTP_PASS');
+    const host = this.configService.get("SMTP_HOST");
+    const user = this.configService.get("SMTP_USER");
+    const pass = this.configService.get("SMTP_PASS");
 
-    
-    if (!host || !user || !pass || pass === 'sua-senha-app') {
+    if (!host || !user || !pass || pass === "sua-senha-app") {
       this.logger.warnWithMetadata(
-        'EmailService',
-        'Usando Ethereal (email fake) para testes...',
+        "EmailService",
+        "Usando Ethereal (email fake) para testes...",
         {},
       );
 
@@ -42,22 +40,21 @@ export class EmailService {
       });
 
       this.logger.infoWithMetadata(
-        'EmailService',
-        'Ethereal configurado com sucesso',
+        "EmailService",
+        "Ethereal configurado com sucesso",
         {
           email: testAccount.user,
-          loginUrl: 'https://ethereal.email/login',
+          loginUrl: "https://ethereal.email/login",
         },
       );
 
       return;
     }
 
-    
     this.transporter = nodemailer.createTransport({
       host: host,
-      port: parseInt(this.configService.get('SMTP_PORT') || '587'),
-      secure: this.configService.get('SMTP_PORT') === '465',
+      port: parseInt(this.configService.get("SMTP_PORT") || "587"),
+      secure: this.configService.get("SMTP_PORT") === "465",
       auth: {
         user: user,
         pass: pass,
@@ -77,30 +74,29 @@ export class EmailService {
     try {
       await this.transporter.verify();
       this.logger.infoWithMetadata(
-        'EmailService',
-        'Servidor de email configurado com sucesso!',
+        "EmailService",
+        "Servidor de email configurado com sucesso!",
         {},
       );
     } catch (error: any) {
       this.logger.errorWithMetadata(
-        'EmailService',
-        'Erro ao conectar com servidor de email',
+        "EmailService",
+        "Erro ao conectar com servidor de email",
         {
           error: error.message,
         },
       );
       this.logger.warnWithMetadata(
-        'EmailService',
-        'Usando modo de fallback (emails serão logados no console)',
+        "EmailService",
+        "Usando modo de fallback (emails serão logados no console)",
         {},
       );
     }
   }
 
-  
   async sendVerificationEmail(email: string, name: string, token: string) {
     const frontendUrl =
-      this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
+      this.configService.get("FRONTEND_URL") || "http://localhost:4000";
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
     const html = `
@@ -152,27 +148,25 @@ export class EmailService {
 
     await this.sendEmail({
       to: email,
-      subject: 'Verifique seu email - MeuApp',
+      subject: "Verifique seu email - MeuApp",
       html,
     });
 
-    
     this.logger.infoWithMetadata(
-      'EmailService',
+      "EmailService",
       `Email de verificação enviado para ${email}`,
       {
         email,
         name,
-        subject: 'Verifique seu email - MeuApp',
-        type: 'verification',
+        subject: "Verifique seu email - MeuApp",
+        type: "verification",
       },
     );
   }
 
-  
   async sendPasswordResetEmail(email: string, name: string, token: string) {
     const frontendUrl =
-      this.configService.get('FRONTEND_URL') || 'http://localhost:4000';
+      this.configService.get("FRONTEND_URL") || "http://localhost:4000";
     const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
     const html = `
@@ -224,24 +218,22 @@ export class EmailService {
 
     await this.sendEmail({
       to: email,
-      subject: 'Recuperação de Senha - MeuApp',
+      subject: "Recuperação de Senha - MeuApp",
       html,
     });
 
-    
     this.logger.infoWithMetadata(
-      'EmailService',
+      "EmailService",
       `Email de recuperação enviado para ${email}`,
       {
         email,
         name,
-        subject: 'Recuperação de Senha - MeuApp',
-        type: 'password_reset',
+        subject: "Recuperação de Senha - MeuApp",
+        type: "password_reset",
       },
     );
   }
 
-  
   async sendNewLoginEmail(
     email: string,
     name: string,
@@ -287,33 +279,31 @@ export class EmailService {
 
     await this.sendEmail({
       to: email,
-      subject: '🔔 Novo Login Detectado - MeuApp',
+      subject: "🔔 Novo Login Detectado - MeuApp",
       html,
     });
 
-    
     this.logger.infoWithMetadata(
-      'EmailService',
+      "EmailService",
       `Email de novo login enviado para ${email}`,
       {
         email,
         name,
         ip,
         device,
-        subject: 'Novo Login Detectado - MeuApp',
-        type: 'new_login',
+        subject: "Novo Login Detectado - MeuApp",
+        type: "new_login",
       },
     );
   }
 
-  
   private async sendEmail(options: {
     to: string;
     subject: string;
     html: string;
     text?: string;
   }) {
-    const from = this.configService.get('EMAIL_FROM') || 'noreply@meuapp.com';
+    const from = this.configService.get("EMAIL_FROM") || "noreply@meuapp.com";
 
     try {
       const result = await this.transporter.sendMail({
@@ -324,9 +314,8 @@ export class EmailService {
         text: options.text || this.htmlToText(options.html),
       });
 
-      
       this.logger.infoWithMetadata(
-        'EmailService',
+        "EmailService",
         `Email enviado com sucesso para ${options.to}`,
         {
           to: options.to,
@@ -337,9 +326,8 @@ export class EmailService {
 
       return result;
     } catch (error: any) {
-      
       this.logger.errorWithMetadata(
-        'EmailService',
+        "EmailService",
         `Erro ao enviar email para ${options.to}`,
         {
           to: options.to,
@@ -349,14 +337,13 @@ export class EmailService {
         },
       );
 
-      
       this.logger.warnWithMetadata(
-        'EmailService',
-        'Fallback: Conteúdo do email (não enviado)',
+        "EmailService",
+        "Fallback: Conteúdo do email (não enviado)",
         {
           to: options.to,
           subject: options.subject,
-          htmlPreview: options.html.substring(0, 200) + '...',
+          htmlPreview: options.html.substring(0, 200) + "...",
         },
       );
 
@@ -364,28 +351,26 @@ export class EmailService {
     }
   }
 
-  
   private htmlToText(html: string): string {
     return html
-      .replace(/<[^>]*>/g, '')
-      .replace(/\s+/g, ' ')
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
       .trim();
   }
 
-  
   async testConnection() {
     try {
       await this.transporter.verify();
       this.logger.infoWithMetadata(
-        'EmailService',
-        'Teste de conexão com servidor de email: OK',
+        "EmailService",
+        "Teste de conexão com servidor de email: OK",
         {},
       );
-      return { success: true, message: 'Conexão com servidor de email OK' };
+      return { success: true, message: "Conexão com servidor de email OK" };
     } catch (error: any) {
       this.logger.errorWithMetadata(
-        'EmailService',
-        'Teste de conexão com servidor de email: FALHOU',
+        "EmailService",
+        "Teste de conexão com servidor de email: FALHOU",
         {
           error: error.message,
         },

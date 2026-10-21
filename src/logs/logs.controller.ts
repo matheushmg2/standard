@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -7,44 +6,39 @@ import {
   Query,
   Param,
   ParseIntPipe,
-} from '@nestjs/common';
-import { AuditLogService } from './audit-log.service';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../users/entities/user.entity';
-import { AuditAction } from './entities/audit-log.entity';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { FastifyRequest } from 'fastify'; 
-import {
-  ApiOperation,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+} from "@nestjs/common";
+import { AuditLogService } from "./audit-log.service";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { UserRole } from "../users/entities/user.entity";
+import { AuditAction } from "./entities/audit-log.entity";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { FastifyRequest } from "fastify";
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-@ApiTags('Logs')
-@Controller('logs')
+@ApiTags("Logs")
+@Controller("logs")
 @UseGuards(RolesGuard)
 export class LogsController {
   constructor(private auditLogService: AuditLogService) {}
 
-  @Get('me')
-  @ApiOperation({ summary: 'Listar logs do usuário autenticado' })
-  @ApiQuery({ name: 'action', enum: AuditAction, required: false })
-  @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
-  @ApiQuery({ name: 'limit', type: Number, required: false, example: 20 })
+  @Get("me")
+  @ApiOperation({ summary: "Listar logs do usuário autenticado" })
+  @ApiQuery({ name: "action", enum: AuditAction, required: false })
+  @ApiQuery({ name: "page", type: Number, required: false, example: 1 })
+  @ApiQuery({ name: "limit", type: Number, required: false, example: 20 })
   @ApiResponse({
     status: 200,
-    description: 'Lista de logs',
+    description: "Lista de logs",
     schema: {
       example: {
         logs: [
           {
-            id: '550e8400-e29b-41d4-a716-446655440000',
-            action: 'LOGIN',
-            ipAddress: '127.0.0.1',
-            userAgent: 'Mozilla/5.0...',
-            description: 'Login realizado',
-            createdAt: '2026-09-04T18:00:00.000Z',
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            action: "LOGIN",
+            ipAddress: "127.0.0.1",
+            userAgent: "Mozilla/5.0...",
+            description: "Login realizado",
+            createdAt: "2026-09-04T18:00:00.000Z",
           },
         ],
         total: 10,
@@ -52,13 +46,13 @@ export class LogsController {
     },
   })
   async getMyLogs(
-    @Request() req: FastifyRequest & { user: any }, // ← FastifyRequest com user
-    @Query('action') action?: AuditAction,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Request() req: FastifyRequest & { user: any },
+    @Query("action") action?: AuditAction,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    const pageNumber = parseInt(page || '1', 10);
-    const limitNumber = parseInt(limit || '20', 10);
+    const pageNumber = parseInt(page || "1", 10);
+    const limitNumber = parseInt(limit || "20", 10);
 
     return this.auditLogService.getUserLogs(req.user.userId, {
       action,
@@ -67,18 +61,18 @@ export class LogsController {
     });
   }
 
-  @Get('me/summary')
-  @ApiOperation({ summary: 'Resumo de atividades do usuário' })
+  @Get("me/summary")
+  @ApiOperation({ summary: "Resumo de atividades do usuário" })
   @ApiResponse({
     status: 200,
-    description: 'Resumo de atividades',
+    description: "Resumo de atividades",
     schema: {
       example: {
         total: 10,
-        period: '30 dias',
+        period: "30 dias",
         actions: { LOGIN: 5, LOGOUT: 3, REGISTER: 1 },
-        lastLogin: '2026-09-04T18:00:00.000Z',
-        lastActivity: '2026-09-04T18:30:00.000Z',
+        lastLogin: "2026-09-04T18:00:00.000Z",
+        lastActivity: "2026-09-04T18:30:00.000Z",
       },
     },
   })
@@ -86,15 +80,15 @@ export class LogsController {
     return this.auditLogService.getUserActivitySummary(req.user.userId);
   }
 
-  @Get('user/:userId')
+  @Get("user/:userId")
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   async getUserLogs(
-    @Param('userId') userId: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Param("userId") userId: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    const pageNumber = parseInt(page || '1', 10);
-    const limitNumber = parseInt(limit || '20', 10);
+    const pageNumber = parseInt(page || "1", 10);
+    const limitNumber = parseInt(limit || "20", 10);
 
     return this.auditLogService.getUserLogs(userId, {
       limit: limitNumber,
@@ -102,14 +96,14 @@ export class LogsController {
     });
   }
 
-  @Get('suspicious')
+  @Get("suspicious")
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   async getSuspiciousActivities(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    const pageNumber = parseInt(page || '1', 10);
-    const limitNumber = parseInt(limit || '100', 10);
+    const pageNumber = parseInt(page || "1", 10);
+    const limitNumber = parseInt(limit || "100", 10);
 
     return this.auditLogService.getSuspiciousActivities({
       limit: limitNumber,
@@ -117,18 +111,18 @@ export class LogsController {
     });
   }
 
-  @Get('login-attempts/:userId')
+  @Get("login-attempts/:userId")
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   async getLoginAttempts(
-    @Param('userId') userId: string,
-    @Query('days', ParseIntPipe) days: number = 7,
+    @Param("userId") userId: string,
+    @Query("days", ParseIntPipe) days: number = 7,
   ) {
     return this.auditLogService.getLoginAttempts(userId, days);
   }
 
-  @Get('security/audit')
+  @Get("security/audit")
   @Roles(UserRole.SUPER_ADMIN)
-  async getSecurityAudit(@Query('days', ParseIntPipe) days: number = 30) {
+  async getSecurityAudit(@Query("days", ParseIntPipe) days: number = 30) {
     const date = new Date();
     date.setDate(date.getDate() - days);
 
